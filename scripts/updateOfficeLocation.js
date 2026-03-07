@@ -4,8 +4,8 @@ const officeLocation = require('../config/officeLocation');
 const haversine = require('haversine-distance');
 
 // ⛓️ Connect to your MongoDB
-mongoose.connect('mongodb+srv://ucattendance96:fEBhJYZip3R1YTqI@ucattendance.zktaczo.mongodb.net/?retryWrites=true&w=majority&appName=UCattendance', {
-  useNewUrlParser: true,
+mongoose.connect(process.env.MONGO_URI, {
+ useNewUrlParser: true,
   useUnifiedTopology: true,
 });
 
