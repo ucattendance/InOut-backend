@@ -1,0 +1,114 @@
+// **************************************************************************************************************
+// Attendance APIs
+// **************************************************************************************************************
+
+
+// app.post('/attendance', authMiddleware, upload.single('image'), async (req, res) => {
+//   const [lat, lon] = req.body.location.split(',').map(parseFloat);
+//   const userLocation = { latitude: lat, longitude: lon };
+
+//   let isInOffice = false;
+//   let matchedOfficeName = null;
+
+//   for (const office of officeLocation) {
+//     const officeCoords = { latitude: office.latitude, longitude: office.longitude };
+//     const distance = haversine(userLocation, officeCoords); // in meters
+
+//     if (distance <= office.radiusMeters) {
+//       isInOffice = true;
+//       matchedOfficeName = office.name;
+//       break;
+//     }
+//   }
+
+//   const attendance = new Attendance({
+//     user: req.user._id,
+//     type: req.body.type,
+//     location: req.body.location,
+//     image: req.file.filename,
+//     isInOffice,
+//     officeName: matchedOfficeName || 'Outside Office',
+//     timestamp: new Date()
+//   });
+
+//   await attendance.save();
+//   res.json({
+//     message: 'Attendance marked',
+//     isInOffice,
+//     office: matchedOfficeName
+//   });
+// });
+
+
+// app.get('/attendance/all', authMiddleware, roleMiddleware('admin', 'user'), async (req, res) => {
+//   try {
+//     const records = await Attendance.find().populate('user', 'name email');
+//     res.json(records);
+//   } catch (error) {
+//     console.error('Error fetching attendance records:', error);
+//     res.status(500).json({ error: 'Internal server error' });
+//   }
+// });
+
+// //checkin or check out
+// app.get('/attendance/last', authMiddleware, async (req, res) => {
+//   try {
+//     const lastRecord = await Attendance.findOne({ user: req.user._id }).sort({ timestamp: -1 });
+//     if (!lastRecord) return res.status(200).json({ type: null });
+//     res.json({ type: lastRecord.type });
+//   } catch (err) {
+//     res.status(500).json({ error: 'Failed to fetch last attendance' });
+//   }
+// });
+
+// // GET /attendance/user/:userId/summary/:year/:month
+// app.get('/attendance/user/:userId/summary/:year/:month', authMiddleware, roleMiddleware('admin'), async (req, res) => {
+//   const { userId, year, month } = req.params;
+//   const startDate = new Date(year, month - 1, 1);
+//   const endDate = new Date(year, month, 0, 23, 59, 59);
+
+//   try {
+//     const allDays = new Set();
+//     const attendanceRecords = await Attendance.find({
+//       user: userId,
+//       timestamp: { $gte: startDate, $lte: endDate },
+//       type: 'check-in'
+//     });
+
+//     attendanceRecords.forEach(record => {
+//       const dateKey = record.timestamp.toISOString().split('T')[0];
+//       allDays.add(dateKey);
+//     });
+
+//     const presentCount = allDays.size;
+//     const totalDays = endDate.getDate();
+//     const absentCount = totalDays - presentCount;
+
+//     res.json({ present: presentCount, absent: absentCount });
+//   } catch (error) {
+//     console.error('Attendance summary error:', error);
+//     res.status(500).json({ error: 'Failed to fetch attendance summary' });
+//   }
+// });
+
+
+// // GET /attendance/user/:userId/last
+// app.get('/attendance/user/:userId/last', authMiddleware, roleMiddleware('admin'), async (req, res) => {
+//   try {
+//     const lastRecord = await Attendance.findOne({ user: req.params.userId })
+//       .sort({ timestamp: -1 })
+//       .select('type timestamp');
+
+//     if (!lastRecord) {
+//       return res.json({ type: 'None', timestamp: null });
+//     }
+
+//     res.json(lastRecord);
+//   } catch (error) {
+//     console.error('Last attendance error:', error);
+//     res.status(500).json({ error: 'Failed to fetch last record' });
+//   }
+// });
+// **************************************************************************************************************
+// Attendance APIs Ends here
+// **************************************************************************************************************
