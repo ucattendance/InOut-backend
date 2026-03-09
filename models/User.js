@@ -77,6 +77,10 @@ const UserSchema = new mongoose.Schema({
   dateOfJoining: {
     type: Date
   },
+  // Date when the user was relieved/left the company. If absent => currently working
+  dateOfRelieving: {
+    type: Date
+  },
   rolesAndResponsibility: {
     type: [String],
     default: []

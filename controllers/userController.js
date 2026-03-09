@@ -22,6 +22,7 @@ const userController = {
         department: 1,
         qualification: 1,
         dateOfJoining: 1,
+    dateOfRelieving: 1,
   address: 1,
   bloodGroup:  1,
         isActive: 1,
@@ -92,6 +93,7 @@ const userController = {
         department,
         qualification,
         dateOfJoining,
+        dateOfRelieving,
         skills,
         rolesAndResponsibility,
         profilePic,
@@ -115,6 +117,7 @@ const userController = {
       if (Array.isArray(rolesAndResponsibility)) updateData.rolesAndResponsibility = rolesAndResponsibility;
       if (bankDetails && typeof bankDetails === 'object') updateData.bankDetails = bankDetails;
       if (dateOfJoining) updateData.dateOfJoining = new Date(dateOfJoining);
+  if (dateOfRelieving) updateData.dateOfRelieving = new Date(dateOfRelieving);
       if (password) updateData.password = await bcrypt.hash(password, 10);
       if (isActive !== undefined) updateData.isActive = isActive;
 
@@ -156,6 +159,7 @@ const userController = {
       department,
       qualification,
       dateOfJoining,
+      dateOfRelieving,
       skills,
       rolesAndResponsibility,
       profilePic,
@@ -180,6 +184,7 @@ const userController = {
     if (Array.isArray(rolesAndResponsibility)) updateData.rolesAndResponsibility = rolesAndResponsibility;
     if (bankDetails && typeof bankDetails === 'object') updateData.bankDetails = bankDetails;
     if (dateOfJoining) updateData.dateOfJoining = new Date(dateOfJoining);
+  if (dateOfRelieving) updateData.dateOfRelieving = new Date(dateOfRelieving);
     if (password) updateData.password = await bcrypt.hash(password, 10);
     
     // Add isActive field
