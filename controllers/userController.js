@@ -30,6 +30,7 @@ const userController = {
         skills: 1,
         rolesAndResponsibility: 1,
         bankDetails: 1,
+        employeeId: 1,
         createdAt: 1,
         updatedAt: 1
       }).sort({name: 1});
@@ -159,7 +160,8 @@ const userController = {
       rolesAndResponsibility,
       profilePic,
       bankDetails,
-      isActive
+      isActive,
+      employeeId
     } = req.body;
 
     const updateData = {};
@@ -182,6 +184,8 @@ const userController = {
     
     // Add isActive field
     if (isActive !== undefined) updateData.isActive = isActive;
+  // allow admin to set/update employeeId when updating a user
+  if (employeeId) updateData.employeeId = employeeId;
 
     const updatedUser = await User.findByIdAndUpdate(
       req.params.id,
@@ -220,7 +224,7 @@ const userController = {
 
   getEmployeesForAttendance: async (req, res) => {
     try {
-      const users = await User.find({ role: 'employee' }, '_id name email role');
+      const users = await User.find({ role: 'employee' }, '_id name email role employeeId');
       res.json(users);
     } catch (err) {
       console.error('Error fetching users:', err);

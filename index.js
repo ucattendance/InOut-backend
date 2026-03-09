@@ -60,7 +60,7 @@ setupAdmin();
 
 app.get('/employeesAttendance',authMiddleware, async (req, res) => {
    try {
-    const users = await User.find({ role: 'employee', isActive:'true' }, '_id name email role company position');
+    const users = await User.find({ role: 'employee', isActive:'true' }, '_id name email role company position employeeId');
     res.json(users);
   } catch (err) {
     console.error('Error fetching users:', err);

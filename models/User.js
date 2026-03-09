@@ -87,6 +87,13 @@ const UserSchema = new mongoose.Schema({
   },
   bankDetails: BankDetailsSchema
   ,
+  // Sequential employee identifier (e.g. UC0001, JZ0001)
+  employeeId: {
+    type: String,
+    unique: true,
+    sparse: true,
+    index: true
+  },
   // Stored letter copies uploaded for this user (PDFs)
   letterCopies: {
     type: [
@@ -102,6 +109,40 @@ const UserSchema = new mongoose.Schema({
 
 }, {
   timestamps: true
+});
+
+// Generate sequential employeeId if not present using a Counter collection.
+// Format: <PREFIX><4-digit seq>, e.g. UC0001, JZ0001
+UserSchema.pre('save', async function (next) {
+  try {
+    if (this.employeeId) return next();
+
+    // decide prefix based on company
+    const company = (this.company || '').toLowerCase();
+    let prefix = 'UC';
+    if (company.includes('urbancode')) prefix = 'UC';
+    else if (company.includes('jobzenter')) prefix = 'JZ';
+    else {
+      // fallback: first two letters of company or UC
+      const letters = (this.company || 'UC').replace(/[^A-Za-z]/g, '').slice(0, 2).toUpperCase();
+      prefix = letters.length === 2 ? letters : 'UC';
+    }
+
+    const Counter = require('./Counter');
+    const counter = await Counter.findOneAndUpdate(
+      { _id: prefix },
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true }
+    ).exec();
+
+    const seq = counter.seq || 1;
+    const padded = String(seq).padStart(4, '0');
+    this.employeeId = `${prefix}${padded}`;
+
+    return next();
+  } catch (err) {
+    return next(err);
+  }
 });
 
 module.exports = mongoose.model('User', UserSchema);
