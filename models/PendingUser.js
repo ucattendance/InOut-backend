@@ -13,6 +13,12 @@ const BankDetailsSchema = new mongoose.Schema({
     type: String
   }
 }, { _id: false });
+// Day schedule sub-schema (keeps shape consistent with Schedule model)
+const DaySchedule = new mongoose.Schema({
+  start: { type: String, default: '09:00' },
+  end: { type: String, default: '17:00' },
+  isLeave: { type: Boolean, default: false }
+}, { _id: false });
 const PendingUserSchema = new mongoose.Schema({
  name: { 
     type: String, 
@@ -80,6 +86,15 @@ const PendingUserSchema = new mongoose.Schema({
   skills: {
     type: [String],
     default: []
+  },
+  schedule: {
+    Monday: DaySchedule,
+    Tuesday: DaySchedule,
+    Wednesday: DaySchedule,
+    Thursday: DaySchedule,
+    Friday: DaySchedule,
+    Saturday: DaySchedule,
+    Sunday: DaySchedule
   },
   bankDetails: BankDetailsSchema
 
