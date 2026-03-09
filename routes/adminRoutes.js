@@ -10,5 +10,7 @@ router.get('/recent-dashboard',auth,role('admin'),adminController.getRecentAtten
 router.get('/pending-users', auth, role('admin'), adminController.getPendingUsers);
 router.post('/approve/:id', auth, role('admin'), adminController.approveUser);
 router.delete('/reject/:id', auth, role('admin'), adminController.rejectUser);
+// Get all uploaded letter copies (admin)
+router.get('/letters', auth, role('admin'), adminController.getAllLetters);
 
 module.exports = router;

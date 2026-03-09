@@ -86,6 +86,19 @@ const UserSchema = new mongoose.Schema({
     default: []
   },
   bankDetails: BankDetailsSchema
+  ,
+  // Stored letter copies uploaded for this user (PDFs)
+  letterCopies: {
+    type: [
+      {
+        url: { type: String },
+        filename: { type: String },
+        uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        uploadedAt: { type: Date, default: Date.now }
+      }
+    ],
+    default: []
+  }
 
 }, {
   timestamps: true

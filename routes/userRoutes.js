@@ -3,6 +3,8 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const role = require('../middleware/role');
 const uploadProfile = require('../middleware/uploadProfile');
+const multer = require('multer');
+const upload = multer(); // memory storage for letter uploads
 const userController = require('../controllers/userController');
 
 // ✅ GET all users
@@ -16,6 +18,9 @@ router.get('/profile',auth,userController.getProfile);
 
 // Upload profile picture (stores image in Cloudinary under profile_pictures/<userId>)
 router.post('/profile/upload', auth, uploadProfile.single('profilePic'), userController.uploadProfilePic);
+
+// Upload generated letter PDF and store in Cloudinary under letter_copies/<candidateId>
+router.post('/letters/upload', auth, upload.single('letter'), userController.uploadLetter);
 
 router.put('/profile',auth, userController.updateProfile);
 // ✅ GET schedules for admin

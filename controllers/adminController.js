@@ -254,6 +254,35 @@ const adminController = {
       res.status(500).json({ error: 'Internal server error' });
     }
   }
+,
+
+  // GET all uploaded letter copies across users (for admin)
+  getAllLetters: async (req, res) => {
+    try {
+      // unwind letterCopies and include user basic info
+      const letters = await User.aggregate([
+        { $unwind: { path: '$letterCopies', preserveNullAndEmptyArrays: false } },
+        {
+          $project: {
+            _id: 0,
+            userId: '$_id',
+            userName: '$name',
+            userEmail: '$email',
+            filename: '$letterCopies.filename',
+            url: '$letterCopies.url',
+            uploadedBy: '$letterCopies.uploadedBy',
+            uploadedAt: '$letterCopies.uploadedAt'
+          }
+        },
+        { $sort: { uploadedAt: -1 } }
+      ]);
+
+      res.json(letters);
+    } catch (err) {
+      console.error('Error fetching all letters:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
 };
 
 module.exports = adminController;

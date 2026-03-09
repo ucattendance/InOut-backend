@@ -10,7 +10,7 @@ const Schedule = require('../models/Schedule');
 const userController = {
   getAllUsers: async (req, res) => {
     try {
-      const users = await User.find( { name: { $ne: "Admin" } },{
+  const users = await User.find( { name: { $ne: "Admin" } },{
          
         name: 1,
         email: 1,
@@ -25,7 +25,8 @@ const userController = {
   address: 1,
   bloodGroup:  1,
         isActive: 1,
-        profilePic: 1,
+    profilePic: 1,
+    letterCopies: 1,
         skills: 1,
         rolesAndResponsibility: 1,
         bankDetails: 1,
@@ -243,6 +244,56 @@ const userController = {
       res.json(updated);
     } catch (error) {
       console.error('Error uploading profile picture:', error);
+      res.status(500).json({ message: error.message });
+    }
+  },
+
+  // Upload a generated letter PDF and attach it to the candidate's user record
+  uploadLetter: async (req, res) => {
+    try {
+      const uploaderId = (req.user && req.user._id) || null;
+      if (!uploaderId) return res.status(401).json({ message: 'Unauthorized' });
+
+      // multer memory storage puts file buffer in req.file.buffer
+      const file = req.file;
+      if (!file || !file.buffer) return res.status(400).json({ message: 'No file uploaded' });
+
+  let candidateId = req.body.candidateId;
+  // if caller doesn't provide a candidateId, attach to uploader's own record
+  if (!candidateId) candidateId = uploaderId;
+  if (!candidateId) return res.status(400).json({ message: 'candidateId is required' });
+
+      const cloudinary = require('../config/cloudinary');
+
+      // upload buffer to Cloudinary using upload_stream (resource_type raw for PDFs)
+      const streamUpload = (buffer, options) => new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(options, (error, result) => {
+          if (result) resolve(result);
+          else reject(error);
+        });
+        // create readable stream from buffer
+        const { Readable } = require('stream');
+        const readable = new Readable();
+        readable._read = () => {}; // _read is required but we push manually
+        readable.push(buffer);
+        readable.push(null);
+        readable.pipe(stream);
+      });
+
+      const folder = `letter_copies/${candidateId}`;
+      const opts = { folder, resource_type: 'raw' };
+      const result = await streamUpload(file.buffer, opts);
+
+      const fileUrl = result.secure_url || result.url;
+      const filename = result.original_filename || result.public_id || file.originalname || 'letter.pdf';
+
+      // push metadata into candidate's record
+      const updated = await User.findByIdAndUpdate(candidateId, { $push: { letterCopies: { url: fileUrl, filename, uploadedBy: uploaderId, uploadedAt: new Date() } } }, { new: true }).select('-password');
+      if (!updated) return res.status(404).json({ message: 'Candidate not found' });
+
+      res.json({ message: 'Uploaded', url: fileUrl, user: updated });
+    } catch (error) {
+      console.error('Error uploading letter:', error);
       res.status(500).json({ message: error.message });
     }
   },
