@@ -6,6 +6,7 @@ const AttendanceSchema = new mongoose.Schema({
   location: String,
   isInOffice: { type: Boolean, default: true },
   officeName: String,
+  comment: String,
   image: String,
   timestamp: Date,
 });

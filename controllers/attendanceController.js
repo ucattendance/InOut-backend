@@ -29,6 +29,7 @@ exports.markAttendance = async (req, res) => {
       user: req.user._id,
       type: req.body.type,
       location: req.body.location,
+      comment: req.body.comment || '',
       image: req.file?.path || '', // Cloudinary URL or fallback
       isInOffice,
       officeName: matchedOfficeName || 'Outside Office',
