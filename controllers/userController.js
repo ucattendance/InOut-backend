@@ -31,6 +31,7 @@ const userController = {
         skills: 1,
         rolesAndResponsibility: 1,
         bankDetails: 1,
+        adminComments: 1,
         employeeId: 1,
         createdAt: 1,
         updatedAt: 1
@@ -166,6 +167,8 @@ const userController = {
       bankDetails,
       isActive,
       employeeId
+      ,
+      adminComments
     } = req.body;
 
     const updateData = {};
@@ -191,6 +194,8 @@ const userController = {
     if (isActive !== undefined) updateData.isActive = isActive;
   // allow admin to set/update employeeId when updating a user
   if (employeeId) updateData.employeeId = employeeId;
+    // adminComments can be empty string; allow explicit set (including empty)
+    if (adminComments !== undefined) updateData.adminComments = adminComments;
 
     const updatedUser = await User.findByIdAndUpdate(
       req.params.id,

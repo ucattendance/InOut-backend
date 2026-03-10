@@ -74,6 +74,11 @@ const UserSchema = new mongoose.Schema({
   qualification: {
     type: String
   },
+  // Admin-maintained freeform comments about the user
+  adminComments: {
+    type: String,
+    default: ''
+  },
   dateOfJoining: {
     type: Date
   },
