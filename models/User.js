@@ -64,6 +64,9 @@ const UserSchema = new mongoose.Schema({
   profilePic: {
     type: String
   },
+  dateOfBirth: {
+    type: Date
+  },
   isActive: {
     type: Boolean,
     default: true

@@ -16,6 +16,7 @@ const userController = {
         email: 1,
         role: 1,
         phone: 1,
+  dateOfBirth: 1,
         position: 1,
         company: 1,
         salary: 1,
@@ -187,6 +188,8 @@ const userController = {
     if (Array.isArray(rolesAndResponsibility)) updateData.rolesAndResponsibility = rolesAndResponsibility;
     if (bankDetails && typeof bankDetails === 'object') updateData.bankDetails = bankDetails;
     if (dateOfJoining) updateData.dateOfJoining = new Date(dateOfJoining);
+      if (dateOfBirth) updateData.dateOfBirth = new Date(dateOfBirth);
+  if (dateOfBirth) updateData.dateOfBirth = new Date(dateOfBirth);
   if (dateOfRelieving) updateData.dateOfRelieving = new Date(dateOfRelieving);
     if (password) updateData.password = await bcrypt.hash(password, 10);
     
