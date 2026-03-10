@@ -98,7 +98,8 @@ const adminController = {
             type: 1,
             timestamp: 1,
             officeName: { $ifNull: ["$officeName", "Outside Office"] },
-            image: { $ifNull: ["$image", ""] }
+            image: { $ifNull: ["$image", ""] },
+            comment: { $ifNull: ["$comment", ""] }
           }
         },
         { $sort: { timestamp: -1 } },
@@ -172,7 +173,8 @@ const adminController = {
             type: 1,
             timestamp: 1,
             officeName: { $ifNull: ["$officeName", "Outside Office"] },
-            image: { $ifNull: ["$image", ""] }
+            image: { $ifNull: ["$image", ""] },
+            comment: { $ifNull: ["$comment", ""] }
           }
         },
         { $sort: { timestamp: -1 } }
