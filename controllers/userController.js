@@ -95,6 +95,7 @@ const userController = {
         department,
         qualification,
         dateOfJoining,
+        dateOfBirth,
         dateOfRelieving,
         skills,
         rolesAndResponsibility,
@@ -118,8 +119,9 @@ const userController = {
       if (Array.isArray(skills)) updateData.skills = skills;
       if (Array.isArray(rolesAndResponsibility)) updateData.rolesAndResponsibility = rolesAndResponsibility;
       if (bankDetails && typeof bankDetails === 'object') updateData.bankDetails = bankDetails;
-      if (dateOfJoining) updateData.dateOfJoining = new Date(dateOfJoining);
-  if (dateOfRelieving) updateData.dateOfRelieving = new Date(dateOfRelieving);
+    if (dateOfJoining) updateData.dateOfJoining = new Date(dateOfJoining);
+    if (dateOfBirth) updateData.dateOfBirth = new Date(dateOfBirth);
+    if (dateOfRelieving) updateData.dateOfRelieving = new Date(dateOfRelieving);
       if (password) updateData.password = await bcrypt.hash(password, 10);
       if (isActive !== undefined) updateData.isActive = isActive;
 
@@ -161,14 +163,14 @@ const userController = {
       department,
       qualification,
       dateOfJoining,
+      dateOfBirth,
       dateOfRelieving,
       skills,
       rolesAndResponsibility,
       profilePic,
       bankDetails,
       isActive,
-      employeeId
-      ,
+      employeeId,
       adminComments
     } = req.body;
 
@@ -188,9 +190,8 @@ const userController = {
     if (Array.isArray(rolesAndResponsibility)) updateData.rolesAndResponsibility = rolesAndResponsibility;
     if (bankDetails && typeof bankDetails === 'object') updateData.bankDetails = bankDetails;
     if (dateOfJoining) updateData.dateOfJoining = new Date(dateOfJoining);
-      if (dateOfBirth) updateData.dateOfBirth = new Date(dateOfBirth);
-  if (dateOfBirth) updateData.dateOfBirth = new Date(dateOfBirth);
-  if (dateOfRelieving) updateData.dateOfRelieving = new Date(dateOfRelieving);
+    if (dateOfBirth) updateData.dateOfBirth = new Date(dateOfBirth);
+    if (dateOfRelieving) updateData.dateOfRelieving = new Date(dateOfRelieving);
     if (password) updateData.password = await bcrypt.hash(password, 10);
     
     // Add isActive field
