@@ -26,6 +26,7 @@ app.use('/uploads', express.static(uploadsPath, {
 
 // Ping Route
 app.get('/ping', (req, res) => res.send('pong'));
+app.get('/version', (req, res) => res.json({ build: 'branch-support-v2' }));
 
 // Route Mounts 
 app.use('/attendance', require('./routes/attendanceRoutes'));

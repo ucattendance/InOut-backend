@@ -6,6 +6,14 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Schedule = require('../models/Schedule');
 
+const applyBankDetailsToUpdate = (updateData, bankDetails) => {
+  if (!bankDetails || typeof bankDetails !== 'object') return;
+  Object.entries(bankDetails).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      updateData[`bankDetails.${key}`] = value;
+    }
+  });
+};
 
 const userController = {
   getAllUsers: async (req, res) => {
@@ -122,7 +130,7 @@ const userController = {
       if (profilePic) updateData.profilePic = profilePic;
       if (Array.isArray(skills)) updateData.skills = skills;
       if (Array.isArray(rolesAndResponsibility)) updateData.rolesAndResponsibility = rolesAndResponsibility;
-      if (bankDetails && typeof bankDetails === 'object') updateData.bankDetails = bankDetails;
+      applyBankDetailsToUpdate(updateData, bankDetails);
       if (branch !== undefined) updateData.branch = branch;
       if (Array.isArray(works)) updateData.works = works;
     if (dateOfJoining) updateData.dateOfJoining = new Date(dateOfJoining);
@@ -131,7 +139,7 @@ const userController = {
       if (password) updateData.password = await bcrypt.hash(password, 10);
       if (isActive !== undefined) updateData.isActive = isActive;
 
-      const updated = await User.findByIdAndUpdate(userId, updateData, { new: true }).select('-password');
+      const updated = await User.findByIdAndUpdate(userId, { $set: updateData }, { new: true }).select('-password');
 
       if (!updated) return res.status(404).json({ message: 'User not found' });
 
@@ -196,7 +204,7 @@ const userController = {
   if (bloodGroup) updateData.bloodGroup = bloodGroup;
     if (Array.isArray(skills)) updateData.skills = skills;
     if (Array.isArray(rolesAndResponsibility)) updateData.rolesAndResponsibility = rolesAndResponsibility;
-    if (bankDetails && typeof bankDetails === 'object') updateData.bankDetails = bankDetails;
+    applyBankDetailsToUpdate(updateData, bankDetails);
     if (dateOfJoining) updateData.dateOfJoining = new Date(dateOfJoining);
     if (dateOfBirth) updateData.dateOfBirth = new Date(dateOfBirth);
     if (dateOfRelieving) updateData.dateOfRelieving = new Date(dateOfRelieving);
@@ -213,7 +221,7 @@ const userController = {
 
     const updatedUser = await User.findByIdAndUpdate(
       req.params.id,
-      updateData,
+      { $set: updateData },
       { new: true }
     ).select('-password');
 
