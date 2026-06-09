@@ -191,30 +191,33 @@ const userController = {
     } = req.body;
 
     const updateData = {};
-    if (name) updateData.name = name;
-    if (email) updateData.email = email;
-    if (phone) updateData.phone = phone;
-    if (position) updateData.position = position;
-    if (company) updateData.company = company;
-    if (salary !== undefined) updateData.salary = salary;
-    if (department) updateData.department = department;
-    if (qualification) updateData.qualification = qualification;
-    if (profilePic) updateData.profilePic = profilePic;
-  if (address) updateData.address = address;
-  if (bloodGroup) updateData.bloodGroup = bloodGroup;
+    if (name !== undefined) updateData.name = name;
+    if (email !== undefined) updateData.email = email;
+    if (phone !== undefined) updateData.phone = phone;
+    if (position !== undefined) updateData.position = position;
+    if (company !== undefined) updateData.company = company;
+    if (salary !== undefined && salary !== null && salary !== '') updateData.salary = Number(salary);
+    if (department !== undefined) updateData.department = department;
+    if (qualification !== undefined) updateData.qualification = qualification;
+    if (profilePic !== undefined) updateData.profilePic = profilePic;
+    if (address !== undefined) updateData.address = address;
+    if (bloodGroup !== undefined) updateData.bloodGroup = bloodGroup;
     if (Array.isArray(skills)) updateData.skills = skills;
     if (Array.isArray(rolesAndResponsibility)) updateData.rolesAndResponsibility = rolesAndResponsibility;
     applyBankDetailsToUpdate(updateData, bankDetails);
-    if (dateOfJoining) updateData.dateOfJoining = new Date(dateOfJoining);
-    if (dateOfBirth) updateData.dateOfBirth = new Date(dateOfBirth);
-    if (dateOfRelieving) updateData.dateOfRelieving = new Date(dateOfRelieving);
+    if (dateOfJoining !== undefined && dateOfJoining !== null && dateOfJoining !== '') {
+      updateData.dateOfJoining = new Date(dateOfJoining);
+    }
+    if (dateOfBirth !== undefined && dateOfBirth !== null && dateOfBirth !== '') {
+      updateData.dateOfBirth = new Date(dateOfBirth);
+    }
+    if (dateOfRelieving !== undefined) {
+      updateData.dateOfRelieving = dateOfRelieving ? new Date(dateOfRelieving) : null;
+    }
     if (password) updateData.password = await bcrypt.hash(password, 10);
-    
-    // Add isActive field
+
     if (isActive !== undefined) updateData.isActive = isActive;
-  // allow admin to set/update employeeId when updating a user
-  if (employeeId) updateData.employeeId = employeeId;
-    // adminComments can be empty string; allow explicit set (including empty)
+    if (employeeId !== undefined) updateData.employeeId = employeeId;
     if (adminComments !== undefined) updateData.adminComments = adminComments;
     if (branch !== undefined) updateData.branch = branch;
     if (Array.isArray(works)) updateData.works = works;
