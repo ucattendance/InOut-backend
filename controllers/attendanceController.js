@@ -1,7 +1,6 @@
 const Attendance = require('../models/Attendance');
-const User = require('../models/User');
 const officeLocation = require('../config/officeLocation');
-const { branchToOfficeName, matchOfficeFromCoords } = require('../utils/officeMatch');
+const { matchOfficeFromCoords } = require('../utils/officeMatch');
 
 exports.markAttendance = async (req, res) => {
   try {
@@ -10,9 +9,7 @@ exports.markAttendance = async (req, res) => {
     }
 
     const [lat, lon] = req.body.location.split(',').map(parseFloat);
-    const employee = await User.findById(req.user._id).select('branch address bankDetails');
-    const preferredOffice = branchToOfficeName(employee);
-    const match = matchOfficeFromCoords(lat, lon, officeLocation, preferredOffice);
+    const match = matchOfficeFromCoords(lat, lon, officeLocation);
     const isInOffice = match.isInOffice;
     const matchedOfficeName = match.isInOffice ? match.officeName : null;
 

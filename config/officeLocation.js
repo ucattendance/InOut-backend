@@ -1,21 +1,25 @@
 // server/config/officeLocation.js
+// branchName = label shown in attendance logs when GPS is within radiusMeters
 module.exports = [
   {
-    name: "Pallikaranai",
+    name: 'Pallikaranai',
+    branchName: 'Chennai Pallikarani',
     latitude: 12.94198577,
     longitude: 80.21012198,
-    radiusMeters: 200, // Acceptable distance from Office 1
+    radiusMeters: 200,
   },
   {
-    name: "Velechery",
+    name: 'Velechery',
+    branchName: 'Chennai Velachery',
     latitude: 12.9912597,
     longitude: 80.2201616,
-    radiusMeters: 400, // Acceptable distance from Office 2
+    radiusMeters: 400,
   },
   {
-    name: "Tirunelveli",
+    name: 'Tirunelveli',
+    branchName: 'Tirunelveli',
     latitude: 8.6988125,
     longitude: 77.7269375,
-    radiusMeters: 500, // Fab Sapphire Towers (MPXG+GQ) — wider for GPS drift
-  }
+    radiusMeters: 500,
+  },
 ];
