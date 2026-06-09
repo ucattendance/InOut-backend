@@ -5,6 +5,9 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 const authMiddleware = require('./middleware/auth');
+const swaggerUi = require('swagger-ui-express');
+const YAML = require('yamljs');
+const swaggerDocument = YAML.load(path.join(__dirname, 'swagger', 'openapi.yaml'));
 const app = express();
 
 // Middleware
@@ -23,6 +26,12 @@ app.use('/uploads', express.static(uploadsPath, {
     res.setHeader('Content-Type', mime.getType(filePath));
   }
 }));
+
+// Swagger API docs
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
+  customSiteTitle: 'UC Attendance API',
+}));
+app.get('/api-docs.json', (req, res) => res.json(swaggerDocument));
 
 // Ping Route
 app.get('/ping', (req, res) => res.send('pong'));

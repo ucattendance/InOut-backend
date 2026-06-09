@@ -1,0 +1,637 @@
+openapi: 3.0.3
+info:
+  title: UC Attendance System API
+  description: Live API documentation for the InOut attendance backend.
+  version: 1.0.0
+servers:
+  - url: https://uc-attendance-system-1ts2.onrender.com
+    description: Production (Render)
+  - url: http://localhost:5000
+    description: Local development
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []
+
+paths:
+  /ping:
+    get:
+      tags: [Health]
+      summary: Health check
+      security: []
+      responses:
+        '200':
+          description: Server is up
+
+  /version:
+    get:
+      tags: [Health]
+      summary: API build version
+      security: []
+      responses:
+        '200':
+          description: Version info
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200':
+          description: Returns JWT token and user info
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register (pending approval)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name: { type: string }
+                email: { type: string, format: email }
+                password: { type: string }
+                phone: { type: string }
+                position: { type: string }
+                company: { type: string }
+      responses:
+        '201':
+          description: Registration submitted
+
+  /users:
+    get:
+      tags: [Users]
+      summary: Get all users
+      responses:
+        '200':
+          description: User list
+
+  /users/me:
+    get:
+      tags: [Users]
+      summary: Get logged-in user
+      responses:
+        '200':
+          description: Current user
+
+  /users/profile:
+    get:
+      tags: [Users]
+      summary: Get profile
+      responses:
+        '200':
+          description: User profile
+    put:
+      tags: [Users]
+      summary: Update profile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Profile updated
+
+  /users/profile/upload:
+    post:
+      tags: [Users]
+      summary: Upload profile picture
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                profilePic:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Upload successful
+
+  /users/letters/upload:
+    post:
+      tags: [Users]
+      summary: Upload letter PDF
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                letter:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Letter uploaded
+
+  /users/{id}:
+    get:
+      tags: [Users]
+      summary: Get user by ID (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: User details
+    put:
+      tags: [Users]
+      summary: Update user (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: User updated
+
+  /users/{id}/salary:
+    put:
+      tags: [Users]
+      summary: Update salary (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Salary updated
+
+  /employeesAttendance:
+    get:
+      tags: [Users]
+      summary: Get active employees list
+      responses:
+        '200':
+          description: Employee list
+
+  /attendance:
+    post:
+      tags: [Attendance]
+      summary: Mark check-in / check-out
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Attendance recorded
+
+  /attendance/me:
+    get:
+      tags: [Attendance]
+      summary: My attendance records
+      responses:
+        '200':
+          description: Attendance history
+
+  /attendance/last:
+    get:
+      tags: [Attendance]
+      summary: Last attendance record
+      responses:
+        '200':
+          description: Last record
+
+  /attendance/all:
+    get:
+      tags: [Attendance]
+      summary: All attendance (admin)
+      responses:
+        '200':
+          description: All records
+
+  /attendance/date/{date}:
+    get:
+      tags: [Attendance]
+      summary: Attendance by date (admin)
+      parameters:
+        - name: date
+          in: path
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Records for date
+
+  /attendance/user/{userId}:
+    get:
+      tags: [Attendance]
+      summary: Attendance by user (admin)
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: User attendance
+
+  /attendance/user/{userId}/last:
+    get:
+      tags: [Attendance]
+      summary: Last attendance for user (admin)
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Last record
+
+  /attendance/user/{userId}/summary/{year}/{month}:
+    get:
+      tags: [Attendance]
+      summary: Monthly summary (admin)
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: year
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: month
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Monthly summary
+
+  /api/admin/summary:
+    get:
+      tags: [Admin]
+      summary: Dashboard summary
+      responses:
+        '200':
+          description: Stats
+
+  /api/admin/recent-attendance:
+    get:
+      tags: [Admin]
+      summary: Recent attendance logs
+      responses:
+        '200':
+          description: Recent logs
+
+  /api/admin/recent-dashboard:
+    get:
+      tags: [Admin]
+      summary: Recent dashboard activity
+      responses:
+        '200':
+          description: Recent activity
+
+  /api/admin/pending-users:
+    get:
+      tags: [Admin]
+      summary: Pending registrations
+      responses:
+        '200':
+          description: Pending users
+
+  /api/admin/approve/{id}:
+    post:
+      tags: [Admin]
+      summary: Approve pending user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: User approved
+
+  /api/admin/reject/{id}:
+    delete:
+      tags: [Admin]
+      summary: Reject pending user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: User rejected
+
+  /api/admin/letters:
+    get:
+      tags: [Admin]
+      summary: All uploaded letters
+      responses:
+        '200':
+          description: Letters list
+
+  /api/leaves/apply:
+    post:
+      tags: [Leaves]
+      summary: Apply for leave
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Leave applied
+
+  /api/leaves/me:
+    get:
+      tags: [Leaves]
+      summary: My leave requests
+      responses:
+        '200':
+          description: My leaves
+
+  /api/leaves/all:
+    get:
+      tags: [Leaves]
+      summary: All leave requests (admin)
+      responses:
+        '200':
+          description: All leaves
+
+  /api/leaves/{id}:
+    patch:
+      tags: [Leaves]
+      summary: Update leave status (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+      responses:
+        '200':
+          description: Leave updated
+
+  /api/holidays:
+    get:
+      tags: [Holidays]
+      summary: Get all holidays
+      responses:
+        '200':
+          description: Holiday list
+    post:
+      tags: [Holidays]
+      summary: Add holiday (admin)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Holiday added
+
+  /api/holidays/filter:
+    get:
+      tags: [Holidays]
+      summary: Filter holidays
+      responses:
+        '200':
+          description: Filtered holidays
+
+  /api/holidays/update/{id}:
+    put:
+      tags: [Holidays]
+      summary: Update holiday
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Holiday updated
+
+  /api/holidays/delete/{id}:
+    delete:
+      tags: [Holidays]
+      summary: Delete holiday
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Holiday deleted
+
+  /api/tasks:
+    post:
+      tags: [Tasks]
+      summary: Create task
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Task created
+
+  /api/tasks/summary:
+    get:
+      tags: [Tasks]
+      summary: Task summary
+      responses:
+        '200':
+          description: Summary counts
+
+  /api/tasks/month/{year}/{month}:
+    get:
+      tags: [Tasks]
+      summary: Tasks by month
+      parameters:
+        - name: year
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: month
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Monthly tasks
+
+  /api/tasks/{date}:
+    get:
+      tags: [Tasks]
+      summary: Tasks by date
+      parameters:
+        - name: date
+          in: path
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Tasks for date
+
+  /api/tasks/{id}:
+    patch:
+      tags: [Tasks]
+      summary: Update task status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Status updated
+    put:
+      tags: [Tasks]
+      summary: Update full task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Task updated
+    delete:
+      tags: [Tasks]
+      summary: Delete task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Task deleted
+
+  /schedules:
+    get:
+      tags: [Schedules]
+      summary: Get all schedules
+      responses:
+        '200':
+          description: Schedule list
+
+  /schedules/{id}:
+    put:
+      tags: [Schedules]
+      summary: Update user schedule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Schedule updated
+
+  /api/payslips:
+    get:
+      tags: [Payslips]
+      summary: Get all payslips
+      security: []
+      responses:
+        '200':
+          description: Payslip list
+    post:
+      tags: [Payslips]
+      summary: Create payslip
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Payslip created
+
+  /uploads/{filename}:
+    get:
+      tags: [Uploads]
+      summary: Get uploaded file
+      security: []
+      parameters:
+        - name: filename
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: File content
