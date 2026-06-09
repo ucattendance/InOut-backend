@@ -27,4 +27,20 @@ const matchOfficeFromCoords = (lat, lon, offices) => {
   return { officeName: 'Outside Office', isInOffice: false, distanceMeters: null };
 };
 
-module.exports = { matchOfficeFromCoords };
+/** Recompute branch label from stored GPS (fixes old "Outside Office" rows on read). */
+const enrichAttendanceLogs = (logs) =>
+  (logs || []).map((log) => {
+    if (!log?.location || !String(log.location).includes(',')) {
+      return log;
+    }
+    const [lat, lon] = String(log.location).split(',').map(parseFloat);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return log;
+    const match = matchOfficeFromCoords(lat, lon, require('../config/officeLocation'));
+    return {
+      ...log,
+      officeName: match.officeName,
+      isInOffice: match.isInOffice,
+    };
+  });
+
+module.exports = { matchOfficeFromCoords, enrichAttendanceLogs };

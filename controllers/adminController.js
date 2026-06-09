@@ -5,6 +5,7 @@ const User = require('../models/User');
 const PendingUser = require('../models/PendingUser');
 const Schedule = require('../models/Schedule');
 const Attendance = require('../models/Attendance');
+const { enrichAttendanceLogs } = require('../utils/officeMatch');
 
 let cachedAttendance = null;
 let cacheTimestamp = null;
@@ -97,6 +98,8 @@ const adminController = {
             dateOfRelieving: "$userData.dateOfRelieving",
             type: 1,
             timestamp: 1,
+            location: 1,
+            isInOffice: 1,
             officeName: { $ifNull: ["$officeName", "Outside Office"] },
             image: { $ifNull: ["$image", ""] },
             comment: { $ifNull: ["$comment", ""] }
@@ -106,11 +109,13 @@ const adminController = {
         { $limit: 1500 }
       ]);
 
+      const enriched = enrichAttendanceLogs(logs);
+
       // 4️⃣ Save to cache
-      cachedAttendance = logs;
+      cachedAttendance = enriched;
       cacheTimestamp = now;
 
-      return res.json(logs);
+      return res.json(enriched);
 
     } catch (err) {
       console.error("Error:", err);
@@ -174,6 +179,8 @@ const adminController = {
             accountNumber: "$userData.bankDetails.bankAccountNumber",
             type: 1,
             timestamp: 1,
+            location: 1,
+            isInOffice: 1,
             officeName: { $ifNull: ["$officeName", "Outside Office"] },
             image: { $ifNull: ["$image", ""] },
             comment: { $ifNull: ["$comment", ""] }
@@ -182,12 +189,14 @@ const adminController = {
         { $sort: { timestamp: -1 } }
       ]);
 
+      const enriched = enrichAttendanceLogs(logs);
+
       // 3️⃣ Save to cache
-      cachedRecentAttendance = logs;
+      cachedRecentAttendance = enriched;
       cacheRecentAttendanceTime = now;
 
       // 4️⃣ Send response
-      res.json(logs);
+      res.json(enriched);
 
     } catch (error) {
       console.error("Error fetching recent logs:", error);

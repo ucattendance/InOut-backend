@@ -20,6 +20,6 @@ module.exports = [
     branchName: 'Tirunelveli',
     latitude: 8.6988125,
     longitude: 77.7269375,
-    radiusMeters: 500,
+    radiusMeters: 750,
   },
 ];
