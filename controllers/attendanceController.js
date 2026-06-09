@@ -1,6 +1,7 @@
 const Attendance = require('../models/Attendance');
+const User = require('../models/User');
 const officeLocation = require('../config/officeLocation');
-const haversine = require('haversine-distance');
+const { branchToOfficeName, matchOfficeFromCoords } = require('../utils/officeMatch');
 
 exports.markAttendance = async (req, res) => {
   try {
@@ -9,21 +10,11 @@ exports.markAttendance = async (req, res) => {
     }
 
     const [lat, lon] = req.body.location.split(',').map(parseFloat);
-    const userLocation = { latitude: lat, longitude: lon };
-
-    let isInOffice = false;
-    let matchedOfficeName = null;
-
-    for (const office of officeLocation) {
-      const officeCoords = { latitude: office.latitude, longitude: office.longitude };
-      const distance = haversine(userLocation, officeCoords); // in meters
-
-      if (distance <= office.radiusMeters) {
-        isInOffice = true;
-        matchedOfficeName = office.name;
-        break;
-      }
-    }
+    const employee = await User.findById(req.user._id).select('branch address bankDetails');
+    const preferredOffice = branchToOfficeName(employee);
+    const match = matchOfficeFromCoords(lat, lon, officeLocation, preferredOffice);
+    const isInOffice = match.isInOffice;
+    const matchedOfficeName = match.isInOffice ? match.officeName : null;
 
     const attendance = new Attendance({
       user: req.user._id,

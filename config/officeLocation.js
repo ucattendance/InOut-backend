@@ -16,6 +16,6 @@ module.exports = [
     name: "Tirunelveli",
     latitude: 8.6988125,
     longitude: 77.7269375,
-    radiusMeters: 350, // Fab Sapphire Towers (MPXG+GQ)
+    radiusMeters: 500, // Fab Sapphire Towers (MPXG+GQ) — wider for GPS drift
   }
 ];
