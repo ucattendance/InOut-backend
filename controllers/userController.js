@@ -21,6 +21,8 @@ const userController = {
         company: 1,
         salary: 1,
         department: 1,
+        branch: 1,
+        works: 1,
         qualification: 1,
         dateOfJoining: 1,
     dateOfRelieving: 1,
@@ -101,7 +103,9 @@ const userController = {
         rolesAndResponsibility,
         profilePic,
         bankDetails,
-        isActive
+        isActive,
+        branch,
+        works
       } = req.body;
 
       const updateData = {};
@@ -119,6 +123,8 @@ const userController = {
       if (Array.isArray(skills)) updateData.skills = skills;
       if (Array.isArray(rolesAndResponsibility)) updateData.rolesAndResponsibility = rolesAndResponsibility;
       if (bankDetails && typeof bankDetails === 'object') updateData.bankDetails = bankDetails;
+      if (branch !== undefined) updateData.branch = branch;
+      if (Array.isArray(works)) updateData.works = works;
     if (dateOfJoining) updateData.dateOfJoining = new Date(dateOfJoining);
     if (dateOfBirth) updateData.dateOfBirth = new Date(dateOfBirth);
     if (dateOfRelieving) updateData.dateOfRelieving = new Date(dateOfRelieving);
@@ -171,7 +177,9 @@ const userController = {
       bankDetails,
       isActive,
       employeeId,
-      adminComments
+      adminComments,
+      branch,
+      works
     } = req.body;
 
     const updateData = {};
@@ -200,6 +208,8 @@ const userController = {
   if (employeeId) updateData.employeeId = employeeId;
     // adminComments can be empty string; allow explicit set (including empty)
     if (adminComments !== undefined) updateData.adminComments = adminComments;
+    if (branch !== undefined) updateData.branch = branch;
+    if (Array.isArray(works)) updateData.works = works;
 
     const updatedUser = await User.findByIdAndUpdate(
       req.params.id,

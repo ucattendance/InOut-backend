@@ -13,8 +13,18 @@ const BankDetailsSchema = new mongoose.Schema({
   },
   upiId: {
     type: String
+  },
+  officeBranch: {
+    type: String
   }
 }, { _id: false }); // Prevents creation of an _id for this sub-doc
+
+const WorkSchema = new mongoose.Schema({
+  company: { type: String, default: '' },
+  department: { type: String, default: '' },
+  position: { type: String, default: '' },
+  branch: { type: String, default: '' },
+}, { _id: false });
 
 // Main User schema
 const UserSchema = new mongoose.Schema({
@@ -73,6 +83,14 @@ const UserSchema = new mongoose.Schema({
   },
   department: {
     type: String
+  },
+  branch: {
+    type: String,
+    default: ''
+  },
+  works: {
+    type: [WorkSchema],
+    default: []
   },
   qualification: {
     type: String
