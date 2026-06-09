@@ -7,7 +7,6 @@ require('dotenv').config();
 const authMiddleware = require('./middleware/auth');
 const swaggerUi = require('swagger-ui-express');
 const YAML = require('yamljs');
-const swaggerDocument = YAML.load(path.join(__dirname, 'swagger', 'openapi.yaml'));
 const app = express();
 
 // Middleware
@@ -28,14 +27,20 @@ app.use('/uploads', express.static(uploadsPath, {
 }));
 
 // Swagger API docs
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
-  customSiteTitle: 'UC Attendance API',
-}));
-app.get('/api-docs.json', (req, res) => res.json(swaggerDocument));
+try {
+  const swaggerDocument = YAML.load(path.join(__dirname, 'swagger', 'openapi.yaml'));
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
+    customSiteTitle: 'UC Attendance API',
+  }));
+  app.get('/api-docs.json', (req, res) => res.json(swaggerDocument));
+  console.log('Swagger UI ready at /api-docs');
+} catch (err) {
+  console.error('Swagger setup failed:', err.message);
+}
 
 // Ping Route
 app.get('/ping', (req, res) => res.send('pong'));
-app.get('/version', (req, res) => res.json({ build: 'branch-support-v2' }));
+app.get('/version', (req, res) => res.json({ build: 'swagger-v1' }));
 
 // Route Mounts 
 app.use('/attendance', require('./routes/attendanceRoutes'));
