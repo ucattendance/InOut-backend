@@ -12,8 +12,35 @@ const parseLocationCoords = (locationString) => {
   return { lat, lon };
 };
 
-/** GPS only — user profile branch is NOT used. Nearest office within radius, else Outside Office. */
-const matchOfficeFromCoords = (lat, lon, offices) => {
+/** Map employee profile fields to office config `name`. */
+const branchToOfficeName = (user) => {
+  const raw = [user?.branch, user?.bankDetails?.officeBranch, user?.address]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  if (raw.includes('tirunel') || raw.includes('tvl')) return 'Tirunelveli';
+  if (raw.includes('pallikar')) return 'Pallikaranai';
+  if (raw.includes('velach') || raw.includes('velech')) return 'Velechery';
+  return null;
+};
+
+const effectiveRadius = (office, preferredOfficeName) => {
+  const radius = office.radiusMeters;
+  if (!preferredOfficeName || office.name !== preferredOfficeName) return radius;
+  if (office.name === 'Tirunelveli') return Math.max(radius, 2500);
+  return Math.round(radius * 1.5);
+};
+
+const userBranchFromLog = (log) => {
+  if (log?.userBranch) return log.userBranch;
+  const user = log?.user;
+  if (!user) return null;
+  return user.branch || user.bankDetails?.officeBranch || user.address || null;
+};
+
+/** Nearest office within its radius → branch name; otherwise Outside Office. */
+const matchOfficeFromCoords = (lat, lon, offices, options = {}) => {
+  const { preferredOfficeName } = options;
   const userLocation = { latitude: lat, longitude: lon };
   let best = null;
 
@@ -23,7 +50,9 @@ const matchOfficeFromCoords = (lat, lon, offices) => {
       longitude: office.longitude,
     });
 
-    if (distance <= office.radiusMeters) {
+    const radius = effectiveRadius(office, preferredOfficeName);
+
+    if (distance <= radius) {
       if (!best || distance < best.distanceMeters) {
         best = {
           officeName: office.branchName || office.name,
@@ -38,17 +67,52 @@ const matchOfficeFromCoords = (lat, lon, offices) => {
   return { officeName: 'Outside Office', isInOffice: false, distanceMeters: null };
 };
 
-const matchOfficeFromLocation = (locationString, offices) => {
+const matchOfficeFromLocation = (locationString, offices, options = {}) => {
   const coords = parseLocationCoords(locationString);
   if (!coords) return { officeName: 'Outside Office', isInOffice: false, distanceMeters: null };
-  return matchOfficeFromCoords(coords.lat, coords.lon, offices);
+  return matchOfficeFromCoords(coords.lat, coords.lon, offices, options);
 };
 
-/** Recompute office label from stored GPS — check-in and check-out evaluated separately. */
-const enrichAttendanceLogs = (logs) =>
-  (logs || []).map((log) => {
+/** Check-out near same-day in-office check-in → keep office name (indoor GPS drift). */
+const matchOfficeWithPairing = (lat, lon, offices, options = {}) => {
+  const { preferredOfficeName, pairedCheckIn } = options;
+  const match = matchOfficeFromCoords(lat, lon, offices, { preferredOfficeName });
+
+  if (match.isInOffice || !pairedCheckIn?.isInOffice || !pairedCheckIn.officeName) {
+    return match;
+  }
+
+  const inCoords = parseLocationCoords(pairedCheckIn.location);
+  if (!inCoords) return match;
+
+  const dist = haversine(
+    { latitude: lat, longitude: lon },
+    { latitude: inCoords.lat, longitude: inCoords.lon }
+  );
+
+  if (dist <= 600) {
+    return {
+      officeName: pairedCheckIn.officeName,
+      isInOffice: true,
+      distanceMeters: Math.round(dist),
+    };
+  }
+
+  return match;
+};
+
+/** Recompute branch label from stored GPS; pair check-out with same-day check-in on read. */
+const enrichAttendanceLogs = (logs) => {
+  const offices = require('../config/officeLocation');
+  const enriched = (logs || []).map((log) => {
     if (!log?.location) return log;
-    const match = matchOfficeFromLocation(log.location, require('../config/officeLocation'));
+    const branch = userBranchFromLog(log);
+    const preferredOfficeName = branchToOfficeName({
+      branch,
+      address: branch,
+      bankDetails: { officeBranch: branch },
+    });
+    const match = matchOfficeFromLocation(log.location, offices, { preferredOfficeName });
     return {
       ...log,
       officeName: match.officeName,
@@ -56,9 +120,48 @@ const enrichAttendanceLogs = (logs) =>
     };
   });
 
+  const pairs = {};
+  for (const log of enriched) {
+    const dateKey = new Date(log.timestamp).toDateString();
+    const key = `${log.userId || log.user?._id || log.employeeName}-${dateKey}`;
+    if (!pairs[key]) pairs[key] = {};
+    if (log.type === 'check-in') pairs[key].checkIn = log;
+  }
+
+  return enriched.map((log) => {
+    if (log.type !== 'check-out' || log.isInOffice) return log;
+    const dateKey = new Date(log.timestamp).toDateString();
+    const key = `${log.userId || log.user?._id || log.employeeName}-${dateKey}`;
+    const checkIn = pairs[key]?.checkIn;
+    if (!checkIn?.location || !log.location) return log;
+
+    const coords = parseLocationCoords(log.location);
+    if (!coords) return log;
+
+    const branch = userBranchFromLog(log);
+    const preferredOfficeName = branchToOfficeName({
+      branch,
+      address: branch,
+      bankDetails: { officeBranch: branch },
+    });
+    const match = matchOfficeWithPairing(coords.lat, coords.lon, offices, {
+      preferredOfficeName,
+      pairedCheckIn: checkIn,
+    });
+    return {
+      ...log,
+      officeName: match.officeName,
+      isInOffice: match.isInOffice,
+    };
+  });
+};
+
 module.exports = {
   parseLocationCoords,
+  branchToOfficeName,
   matchOfficeFromCoords,
   matchOfficeFromLocation,
+  matchOfficeWithPairing,
   enrichAttendanceLogs,
+  effectiveRadius,
 };

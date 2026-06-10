@@ -1,6 +1,12 @@
 const Attendance = require('../models/Attendance');
+const User = require('../models/User');
 const officeLocation = require('../config/officeLocation');
-const { matchOfficeFromLocation, enrichAttendanceLogs } = require('../utils/officeMatch');
+const {
+  parseLocationCoords,
+  branchToOfficeName,
+  matchOfficeWithPairing,
+  enrichAttendanceLogs,
+} = require('../utils/officeMatch');
 
 exports.markAttendance = async (req, res) => {
   try {
@@ -8,7 +14,33 @@ exports.markAttendance = async (req, res) => {
       return res.status(400).json({ error: 'Invalid location format' });
     }
 
-    const match = matchOfficeFromLocation(req.body.location, officeLocation);
+    if (!['check-in', 'check-out'].includes(req.body.type)) {
+      return res.status(400).json({ error: 'Invalid attendance type' });
+    }
+
+    const coords = parseLocationCoords(req.body.location);
+    if (!coords) {
+      return res.status(400).json({ error: 'Invalid location format' });
+    }
+
+    const user = await User.findById(req.user._id).select('branch address bankDetails');
+    const preferredOfficeName = branchToOfficeName(user);
+
+    let pairedCheckIn = null;
+    if (req.body.type === 'check-out') {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      pairedCheckIn = await Attendance.findOne({
+        user: req.user._id,
+        type: 'check-in',
+        timestamp: { $gte: todayStart },
+      }).sort({ timestamp: -1 });
+    }
+
+    const match = matchOfficeWithPairing(coords.lat, coords.lon, officeLocation, {
+      preferredOfficeName,
+      pairedCheckIn,
+    });
     const isInOffice = match.isInOffice;
     const matchedOfficeName = match.isInOffice ? match.officeName : null;
 
