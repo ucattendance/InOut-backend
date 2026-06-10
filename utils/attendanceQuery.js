@@ -47,11 +47,16 @@ const loadEmployeeMaps = async () => {
 const resolveEmployee = (userRef, maps) => {
   if (userRef == null || !maps) return null;
 
-  if (typeof userRef === 'object' && userRef._id) {
-    return resolveEmployee(userRef._id, maps);
+  let raw;
+  if (userRef instanceof mongoose.Types.ObjectId) {
+    raw = String(userRef);
+  } else if (typeof userRef === 'object' && userRef._id != null) {
+    // Do not recurse: ObjectId._id can point to itself and blow the stack.
+    raw = String(userRef._id);
+  } else {
+    raw = String(userRef).trim();
   }
 
-  const raw = String(userRef).trim();
   if (!raw || raw === '[object Object]') return null;
 
   const direct = maps.byId.get(raw) || maps.byEmpId.get(raw);
