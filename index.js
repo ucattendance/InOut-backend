@@ -46,7 +46,7 @@ try {
 
 // Ping Route
 app.get('/ping', (req, res) => res.send('pong'));
-app.get('/version', (req, res) => res.json({ build: 'summary-agg-fix-v9' }));
+app.get('/version', (req, res) => res.json({ build: 'bef318c-console-fix-v11' }));
 
 // Route Mounts 
 app.use('/attendance', require('./routes/attendanceRoutes'));
