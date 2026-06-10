@@ -1,4 +1,20 @@
+const mongoose = require('mongoose');
 const haversine = require('haversine-distance');
+
+/** Use stored timestamp, or ObjectId creation time for legacy rows missing timestamp. */
+const getAttendanceTimestamp = (log) => {
+  if (log?.timestamp) return new Date(log.timestamp);
+  const id = log?._id;
+  if (id && mongoose.Types.ObjectId.isValid(String(id))) {
+    return new mongoose.Types.ObjectId(String(id)).getTimestamp();
+  }
+  return null;
+};
+
+const logDateKey = (log) => {
+  const ts = getAttendanceTimestamp(log);
+  return ts ? ts.toDateString() : 'unknown';
+};
 
 /** Parse "lat,lon" and fix swapped coordinates (common on some phones). */
 const parseLocationCoords = (locationString) => {
@@ -132,7 +148,7 @@ const enrichAttendanceLogs = (logs) => {
 
   const pairs = {};
   for (const log of enriched) {
-    const dateKey = new Date(log.timestamp).toDateString();
+    const dateKey = logDateKey(log);
     const key = `${log.userId || log.user?._id || log.employeeName}-${dateKey}`;
     if (!pairs[key]) pairs[key] = {};
     if (log.type === 'check-in') pairs[key].checkIn = log;
@@ -140,7 +156,7 @@ const enrichAttendanceLogs = (logs) => {
 
   return enriched.map((log) => {
     if (log.type !== 'check-out' || log.isInOffice) return log;
-    const dateKey = new Date(log.timestamp).toDateString();
+    const dateKey = logDateKey(log);
     const key = `${log.userId || log.user?._id || log.employeeName}-${dateKey}`;
     const checkIn = pairs[key]?.checkIn;
     if (!checkIn?.location || !log.location) return log;
@@ -167,6 +183,7 @@ const enrichAttendanceLogs = (logs) => {
 };
 
 module.exports = {
+  getAttendanceTimestamp,
   toPlainLog,
   parseLocationCoords,
   branchToOfficeName,

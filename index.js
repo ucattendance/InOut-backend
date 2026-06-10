@@ -40,7 +40,7 @@ try {
 
 // Ping Route
 app.get('/ping', (req, res) => res.send('pong'));
-app.get('/version', (req, res) => res.json({ build: 'attendance-timestamp-fix-v5' }));
+app.get('/version', (req, res) => res.json({ build: 'attendance-history-fix-v6' }));
 
 // Route Mounts 
 app.use('/attendance', require('./routes/attendanceRoutes'));

@@ -5,7 +5,77 @@ const User = require('../models/User');
 const PendingUser = require('../models/PendingUser');
 const Schedule = require('../models/Schedule');
 const Attendance = require('../models/Attendance');
-const { enrichAttendanceLogs } = require('../utils/officeMatch');
+const { enrichAttendanceLogs, getAttendanceTimestamp } = require('../utils/officeMatch');
+
+/** Join users even when legacy attendance rows stored `user` as a string id. */
+const attendanceUserLookupStages = () => [
+  {
+    $addFields: {
+      userObjId: {
+        $cond: {
+          if: { $eq: [{ $type: '$user' }, 'objectId'] },
+          then: '$user',
+          else: {
+            $convert: { input: '$user', to: 'objectId', onError: null, onNull: null },
+          },
+        },
+      },
+    },
+  },
+  {
+    $lookup: {
+      from: 'users',
+      localField: 'userObjId',
+      foreignField: '_id',
+      as: 'userData',
+    },
+  },
+  { $unwind: '$userData' },
+  {
+    $match: {
+      'userData.role': 'employee',
+      'userData.isActive': true,
+    },
+  },
+];
+
+const attendanceProjectStage = {
+  $project: {
+    _id: 1,
+    employeeName: '$userData.name',
+    userId: '$userData._id',
+    role: '$userData.role',
+    employeeId: '$userData.employeeId',
+    position: '$userData.position',
+    department: '$userData.department',
+    company: '$userData.company',
+    dateOfRelieving: '$userData.dateOfRelieving',
+    userBranch: {
+      $ifNull: [
+        '$userData.branch',
+        { $ifNull: ['$userData.bankDetails.officeBranch', '$userData.address'] },
+      ],
+    },
+    type: 1,
+    timestamp: 1,
+    location: 1,
+    isInOffice: 1,
+    officeName: { $ifNull: ['$officeName', 'Outside Office'] },
+    image: { $ifNull: ['$image', ''] },
+    comment: { $ifNull: ['$comment', ''] },
+  },
+};
+
+const serializeAdminAttendance = (logs) =>
+  enrichAttendanceLogs(logs).map((row) => {
+    const ts = getAttendanceTimestamp(row);
+    return {
+      ...row,
+      _id: row._id ? String(row._id) : row._id,
+      userId: row.userId ? String(row.userId) : row.userId,
+      timestamp: ts ? ts.toISOString() : null,
+    };
+  });
 
 let cachedAttendance = null;
 let cacheTimestamp = null;
@@ -60,62 +130,19 @@ const adminController = {
 
       console.log("🆕 Cache expired → Fetching from DB");
 
-      // 2️⃣ Calculate last 30 days
-      const end = new Date();
-      const start = new Date();
-      start.setDate(start.getDate() - 30);
+      const days = Number.parseInt(req.query.days, 10);
+      const pipeline = [...attendanceUserLookupStages(), attendanceProjectStage];
 
-      // 3️⃣ Run your aggregation
-      const logs = await Attendance.aggregate([
-        {
-          $match: { timestamp: { $gte: start, $lt: end } }
-        },
-        {
-          $lookup: {
-            from: "users",
-            localField: "user",
-            foreignField: "_id",
-            as: "userData"
-          }
-        },
-        { $unwind: "$userData" },
-        {
-          $match: {
-            "userData.role": "employee",
-            "userData.isActive": true
-          }
-        },
-        {
-          $project: {
-            _id: 0,
-            employeeName: "$userData.name",
-            userId: "$userData._id",
-            role: "$userData.role",
-            employeeId: "$userData.employeeId",
-            position: "$userData.position",
-            department: "$userData.department",
-            company: "$userData.company",
-            dateOfRelieving: "$userData.dateOfRelieving",
-            userBranch: {
-              $ifNull: [
-                "$userData.branch",
-                { $ifNull: ["$userData.bankDetails.officeBranch", "$userData.address"] },
-              ],
-            },
-            type: 1,
-            timestamp: 1,
-            location: 1,
-            isInOffice: 1,
-            officeName: { $ifNull: ["$officeName", "Outside Office"] },
-            image: { $ifNull: ["$image", ""] },
-            comment: { $ifNull: ["$comment", ""] }
-          }
-        },
-        { $sort: { timestamp: -1 } },
-        { $limit: 1500 }
-      ]);
+      if (Number.isFinite(days) && days > 0) {
+        const start = new Date();
+        start.setDate(start.getDate() - days);
+        pipeline.unshift({ $match: { timestamp: { $gte: start } } });
+      }
 
-      const enriched = enrichAttendanceLogs(logs);
+      pipeline.push({ $sort: { timestamp: -1, _id: -1 } });
+
+      const logs = await Attendance.aggregate(pipeline);
+      const enriched = serializeAdminAttendance(logs);
 
       // 4️⃣ Save to cache
       cachedAttendance = enriched;
@@ -150,58 +177,21 @@ const adminController = {
 
       console.log("🆕 Cache expired → Fetching RECENT ATTENDANCE from DB");
 
-      // 2️⃣ Fetch from database (optimized version)
       const logs = await Attendance.aggregate([
-        {
-          $lookup: {
-            from: "users",
-            localField: "user",
-            foreignField: "_id",
-            as: "userData"
-          }
-        },
-        { $unwind: "$userData" },
-        {
-          $match: {
-            "userData.role": "employee",
-            "userData.isActive": true
-          }
-        },
+        ...attendanceUserLookupStages(),
         {
           $project: {
-            _id: 0,
-            employeeName: "$userData.name",
-            userId: "$userData._id",
-            role: "$userData.role",
-            employeeId: "$userData.employeeId",
-            position: "$userData.position",
-            department: "$userData.department",
-            company: "$userData.company",
-            dateOfRelieving: "$userData.dateOfRelieving",
-            dateOfJoining: "$userData.dateOfJoining",
-            dateOfBirth: "$userData.dateOfBirth",
-            bankingName: "$userData.bankDetails.bankingName",
-            dateOfBirth: "$userData.dateOfBirth",
-            accountNumber: "$userData.bankDetails.bankAccountNumber",
-            userBranch: {
-              $ifNull: [
-                "$userData.branch",
-                { $ifNull: ["$userData.bankDetails.officeBranch", "$userData.address"] },
-              ],
-            },
-            type: 1,
-            timestamp: 1,
-            location: 1,
-            isInOffice: 1,
-            officeName: { $ifNull: ["$officeName", "Outside Office"] },
-            image: { $ifNull: ["$image", ""] },
-            comment: { $ifNull: ["$comment", ""] }
-          }
+            ...attendanceProjectStage.$project,
+            dateOfJoining: '$userData.dateOfJoining',
+            dateOfBirth: '$userData.dateOfBirth',
+            bankingName: '$userData.bankDetails.bankingName',
+            accountNumber: '$userData.bankDetails.bankAccountNumber',
+          },
         },
-        { $sort: { timestamp: -1 } }
+        { $sort: { timestamp: -1, _id: -1 } },
       ]);
 
-      const enriched = enrichAttendanceLogs(logs);
+      const enriched = serializeAdminAttendance(logs);
 
       // 3️⃣ Save to cache
       cachedRecentAttendance = enriched;
