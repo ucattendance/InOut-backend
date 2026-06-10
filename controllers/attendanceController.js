@@ -155,12 +155,42 @@ exports.markAttendance = async (req, res) => {
 
 exports.getAllAttendance = async (req, res) => {
   try {
-    const records = await Attendance.find({})
+    const start = new Date();
+    start.setFullYear(start.getFullYear() - 3);
+    start.setHours(0, 0, 0, 0);
+
+    const records = await Attendance.find({ timestamp: { $gte: start } })
       .sort({ timestamp: -1, _id: -1 })
-      .limit(5000)
+      .limit(8000)
       .lean();
-    const joined = await joinAttendanceToEmployees(records);
-    res.json(serializeAttendanceRows(joined));
+
+    let enriched = [];
+    try {
+      const joined = await joinAttendanceToEmployees(records);
+      try {
+        enriched = serializeAttendanceRows(joined);
+      } catch (serErr) {
+        console.error('getAllAttendance serialize failed:', serErr.message);
+        enriched = joined.map((row) => ({
+          ...row,
+          timestamp: row.timestamp ? new Date(row.timestamp).toISOString() : null,
+        }));
+      }
+    } catch (joinErr) {
+      console.error('getAllAttendance join failed:', joinErr.message);
+      enriched = records.map((row) => ({
+        employeeName: 'Unknown',
+        userId: row.user ? String(row.user) : null,
+        type: row.type,
+        timestamp: row.timestamp,
+        location: row.location,
+        isInOffice: row.isInOffice,
+        officeName: row.officeName || 'Outside Office',
+        image: row.image || '',
+      }));
+    }
+
+    res.json(enriched);
   } catch (err) {
     console.error('Fetch error:', err);
     res.status(500).json({ error: 'Internal server error' });
