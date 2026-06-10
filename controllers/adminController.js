@@ -57,47 +57,33 @@ const adminController = {
       const todayEnd = new Date();
       todayEnd.setHours(23, 59, 59, 999);
 
-      const checkIns = await Attendance.find({
-        type: 'check-in',
-        timestamp: { $gte: todayStart, $lte: todayEnd },
-      }).lean();
-
-      let presentToday = 0;
-
-      // Same join path as recent-dashboard (handles legacy user id formats).
-      try {
-        const joined = await joinAttendanceToEmployees(checkIns);
-        presentToday = new Set(joined.map((r) => String(r.userId))).size;
-      } catch (joinErr) {
-        console.warn('Summary join failed, trying aggregation:', joinErr.message);
-        const agg = await Attendance.aggregate([
-          {
-            $match: {
-              type: 'check-in',
-              timestamp: { $gte: todayStart, $lte: todayEnd },
-            },
+      const agg = await Attendance.aggregate([
+        {
+          $match: {
+            type: 'check-in',
+            timestamp: { $gte: todayStart, $lte: todayEnd },
           },
-          {
-            $lookup: {
-              from: 'users',
-              localField: 'user',
-              foreignField: '_id',
-              as: 'userData',
-            },
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'user',
+            foreignField: '_id',
+            as: 'userData',
           },
-          { $unwind: '$userData' },
-          {
-            $match: {
-              'userData.role': 'employee',
-              'userData.isActive': { $ne: false },
-            },
+        },
+        { $unwind: '$userData' },
+        {
+          $match: {
+            'userData.role': 'employee',
+            'userData.isActive': { $ne: false },
           },
-          { $group: { _id: '$userData._id' } },
-          { $count: 'present' },
-        ]);
-        presentToday = agg[0]?.present || 0;
-      }
+        },
+        { $group: { _id: '$userData._id' } },
+        { $count: 'present' },
+      ]);
 
+      const presentToday = agg[0]?.present || 0;
       const absentToday = Math.max(0, totalEmployees - presentToday);
       res.json({ totalEmployees, presentToday, absentToday });
     } catch (error) {
