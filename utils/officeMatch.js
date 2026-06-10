@@ -124,20 +124,24 @@ const toPlainLog = (log) => {
 const enrichAttendanceLogs = (logs) => {
   const offices = require('../config/officeLocation');
   const enriched = (logs || []).map((log) => {
-    const plain = toPlainLog(log);
-    if (!plain?.location) return plain;
-    const branch = userBranchFromLog(plain);
-    const preferredOfficeName = branchToOfficeName({
-      branch,
-      address: branch,
-      bankDetails: { officeBranch: branch },
-    });
-    const match = matchOfficeFromLocation(plain.location, offices, { preferredOfficeName });
-    return {
-      ...plain,
-      officeName: match.officeName,
-      isInOffice: match.isInOffice,
-    };
+    try {
+      const plain = toPlainLog(log);
+      if (!plain?.location) return plain;
+      const branch = userBranchFromLog(plain);
+      const preferredOfficeName = branchToOfficeName({
+        branch,
+        address: branch,
+        bankDetails: { officeBranch: branch },
+      });
+      const match = matchOfficeFromLocation(plain.location, offices, { preferredOfficeName });
+      return {
+        ...plain,
+        officeName: match.officeName,
+        isInOffice: match.isInOffice,
+      };
+    } catch {
+      return toPlainLog(log);
+    }
   });
 
   const pairs = {};

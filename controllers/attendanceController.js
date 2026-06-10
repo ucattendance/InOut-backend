@@ -155,7 +155,10 @@ exports.markAttendance = async (req, res) => {
 
 exports.getAllAttendance = async (req, res) => {
   try {
-    const records = await Attendance.find({}).sort({ timestamp: -1, _id: -1 }).lean();
+    const records = await Attendance.find({})
+      .sort({ timestamp: -1, _id: -1 })
+      .limit(5000)
+      .lean();
     const joined = await joinAttendanceToEmployees(records);
     res.json(serializeAttendanceRows(joined));
   } catch (err) {

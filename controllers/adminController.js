@@ -55,17 +55,26 @@ const adminController = {
       const todayEnd = new Date();
       todayEnd.setHours(23, 59, 59, 999);
 
-      const todayRecords = await fetchAttendanceInRange(todayStart, todayEnd);
-      const presentIds = new Set();
-      for (const row of todayRecords) {
-        if (row.type !== 'check-in') continue;
-        const user = resolveEmployee(row.user, maps);
-        if (user) presentIds.add(String(user._id));
+      let presentToday = 0;
+      try {
+        const todayRecords = await fetchAttendanceInRange(todayStart, todayEnd);
+        const presentIds = new Set();
+        for (const row of todayRecords) {
+          if (row.type !== 'check-in') continue;
+          const user = resolveEmployee(row.user, maps);
+          if (user) presentIds.add(String(user._id));
+        }
+        presentToday = presentIds.size;
+      } catch (rangeErr) {
+        console.error('Summary range query failed, using fallback:', rangeErr.message);
+        const checkInUserIds = await Attendance.find({
+          type: 'check-in',
+          timestamp: { $gte: todayStart, $lte: todayEnd },
+        }).distinct('user');
+        presentToday = checkInUserIds.filter((id) => maps.byId.has(String(id))).length;
       }
 
-      const presentToday = presentIds.size;
       const absentToday = Math.max(0, totalEmployees - presentToday);
-
       res.json({ totalEmployees, presentToday, absentToday });
     } catch (error) {
       console.error('Error fetching summary:', error);
@@ -94,8 +103,23 @@ const adminController = {
         date,
         days: Number.isFinite(days) && days > 0 ? days : undefined,
       });
-      const joined = await joinAttendanceToEmployees(records);
-      const enriched = serializeAttendanceRows(joined);
+      let enriched = [];
+      try {
+        const joined = await joinAttendanceToEmployees(records);
+        enriched = serializeAttendanceRows(joined);
+      } catch (joinErr) {
+        console.error('Dashboard join/serialize failed:', joinErr.message);
+        enriched = records.map((row) => ({
+          employeeName: 'Unknown',
+          userId: row.user ? String(row.user) : null,
+          type: row.type,
+          timestamp: row.timestamp,
+          location: row.location,
+          isInOffice: row.isInOffice,
+          officeName: row.officeName || 'Outside Office',
+          image: row.image || '',
+        }));
+      }
 
       if (!date) {
         cachedAttendance = { _key: cacheKey, data: enriched };
@@ -105,7 +129,7 @@ const adminController = {
       return res.json(enriched);
     } catch (err) {
       console.error('Error:', err);
-      res.status(500).json({ error: 'Server error' });
+      res.status(500).json({ error: 'Internal server error' });
     }
   },
 

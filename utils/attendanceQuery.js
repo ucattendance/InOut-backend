@@ -158,18 +158,26 @@ const fetchAttendanceInRange = async (start, end) => {
     byId.set(String(row._id), row);
   }
 
-  const startSeconds = Math.floor(start.getTime() / 1000);
-  const endSeconds = Math.floor(end.getTime() / 1000);
-  const minOid = mongoose.Types.ObjectId.createFromTime(startSeconds);
-  const maxOid = mongoose.Types.ObjectId.createFromTime(endSeconds);
+  try {
+    if (typeof mongoose.Types.ObjectId.createFromTime === 'function') {
+      const startSeconds = Math.floor(start.getTime() / 1000);
+      const endSeconds = Math.floor(end.getTime() / 1000);
+      const minOid = mongoose.Types.ObjectId.createFromTime(startSeconds);
+      const maxOid = mongoose.Types.ObjectId.createFromTime(endSeconds);
 
-  const legacy = await Attendance.find({
-    $or: [{ timestamp: null }, { timestamp: { $exists: false } }],
-    _id: { $gte: minOid, $lte: maxOid },
-  }).lean();
+      const legacy = await Attendance.find({
+        $or: [{ timestamp: null }, { timestamp: { $exists: false } }],
+        _id: { $gte: minOid, $lte: maxOid },
+      })
+        .limit(500)
+        .lean();
 
-  for (const row of legacy) {
-    byId.set(String(row._id), row);
+      for (const row of legacy) {
+        byId.set(String(row._id), row);
+      }
+    }
+  } catch (legacyErr) {
+    console.error('Legacy attendance scan skipped:', legacyErr.message);
   }
 
   return [...byId.values()].sort((a, b) => {
