@@ -47,10 +47,10 @@ const fetchAttendanceRecords = async ({ days, date } = {}) => {
 const adminController = {
   getAdminSummary: async (req, res) => {
     try {
-      const [totalEmployees, maps] = await Promise.all([
-        User.countDocuments({ role: 'employee', isActive: { $ne: false } }),
-        loadEmployeeMaps(),
-      ]);
+      const totalEmployees = await User.countDocuments({
+        role: 'employee',
+        isActive: { $ne: false },
+      });
 
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
@@ -60,23 +60,45 @@ const adminController = {
       const checkIns = await Attendance.find({
         type: 'check-in',
         timestamp: { $gte: todayStart, $lte: todayEnd },
-      })
-        .select('user')
-        .lean();
+      }).lean();
 
-      const presentIds = new Set();
-      for (const row of checkIns) {
-        try {
-          const employee = resolveEmployee(row.user, maps);
-          if (employee) presentIds.add(String(employee._id));
-        } catch (rowErr) {
-          console.warn('Summary: skip row', row._id, rowErr.message);
-        }
+      let presentToday = 0;
+
+      // Same join path as recent-dashboard (handles legacy user id formats).
+      try {
+        const joined = await joinAttendanceToEmployees(checkIns);
+        presentToday = new Set(joined.map((r) => String(r.userId))).size;
+      } catch (joinErr) {
+        console.warn('Summary join failed, trying aggregation:', joinErr.message);
+        const agg = await Attendance.aggregate([
+          {
+            $match: {
+              type: 'check-in',
+              timestamp: { $gte: todayStart, $lte: todayEnd },
+            },
+          },
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'user',
+              foreignField: '_id',
+              as: 'userData',
+            },
+          },
+          { $unwind: '$userData' },
+          {
+            $match: {
+              'userData.role': 'employee',
+              'userData.isActive': { $ne: false },
+            },
+          },
+          { $group: { _id: '$userData._id' } },
+          { $count: 'present' },
+        ]);
+        presentToday = agg[0]?.present || 0;
       }
 
-      const presentToday = presentIds.size;
       const absentToday = Math.max(0, totalEmployees - presentToday);
-
       res.json({ totalEmployees, presentToday, absentToday });
     } catch (error) {
       console.error('Error fetching summary:', error);
