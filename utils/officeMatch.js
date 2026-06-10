@@ -16,7 +16,7 @@ const effectiveRadius = (office, preferredOfficeName) => {
   let radius = office.radiusMeters;
   if (!preferredOfficeName || office.name !== preferredOfficeName) return radius;
   // Tirunelveli indoor GPS is often 1–2 km off; widen when employee branch matches.
-  if (office.name === 'Tirunelveli') return 2500;
+  if (office.name === 'Tirunelveli') return 3000;
   return Math.round(radius * 1.5);
 };
 
@@ -46,6 +46,25 @@ const matchOfficeFromCoords = (lat, lon, offices, options = {}) => {
   }
 
   if (best) return best;
+
+  if (preferredOfficeName === 'Tirunelveli') {
+    const lat = userLocation.latitude;
+    const lon = userLocation.longitude;
+    if (lat >= 8.65 && lat <= 8.85 && lon >= 77.65 && lon <= 77.78) {
+      const tvl = offices.find((o) => o.name === 'Tirunelveli');
+      if (tvl) {
+        const distance = haversine(userLocation, {
+          latitude: tvl.latitude,
+          longitude: tvl.longitude,
+        });
+        return {
+          officeName: tvl.branchName || tvl.name,
+          isInOffice: true,
+          distanceMeters: Math.round(distance),
+        };
+      }
+    }
+  }
 
   return { officeName: 'Outside Office', isInOffice: false, distanceMeters: null };
 };

@@ -21,6 +21,6 @@ module.exports = [
     // Fab Sapphire Towers, S Bypass Rd, Vasanth Nagar (was ~2.8km off — caused Outside Office)
     latitude: 8.7237565,
     longitude: 77.722212,
-    radiusMeters: 1200,
+    radiusMeters: 1500,
   },
 ];
