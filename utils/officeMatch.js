@@ -1,5 +1,17 @@
 const haversine = require('haversine-distance');
 
+/** Parse "lat,lon" and fix swapped coordinates (common on some phones). */
+const parseLocationCoords = (locationString) => {
+  if (!locationString || !String(locationString).includes(',')) return null;
+  let [lat, lon] = String(locationString).split(',').map((v) => parseFloat(v.trim()));
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  // South India: lat ~8–13, lon ~76–82 — if reversed, swap back
+  if (lat > 20 && lon < 20) {
+    [lat, lon] = [lon, lat];
+  }
+  return { lat, lon };
+};
+
 /** Nearest office within its radius → branch name; otherwise Outside Office. */
 const matchOfficeFromCoords = (lat, lon, offices) => {
   const userLocation = { latitude: lat, longitude: lon };
@@ -26,15 +38,17 @@ const matchOfficeFromCoords = (lat, lon, offices) => {
   return { officeName: 'Outside Office', isInOffice: false, distanceMeters: null };
 };
 
-/** Recompute office label from stored GPS on dashboard read. */
+const matchOfficeFromLocation = (locationString, offices) => {
+  const coords = parseLocationCoords(locationString);
+  if (!coords) return { officeName: 'Outside Office', isInOffice: false, distanceMeters: null };
+  return matchOfficeFromCoords(coords.lat, coords.lon, offices);
+};
+
+/** Recompute office label from stored GPS — check-in and check-out evaluated separately. */
 const enrichAttendanceLogs = (logs) =>
   (logs || []).map((log) => {
-    if (!log?.location || !String(log.location).includes(',')) {
-      return log;
-    }
-    const [lat, lon] = String(log.location).split(',').map(parseFloat);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return log;
-    const match = matchOfficeFromCoords(lat, lon, require('../config/officeLocation'));
+    if (!log?.location) return log;
+    const match = matchOfficeFromLocation(log.location, require('../config/officeLocation'));
     return {
       ...log,
       officeName: match.officeName,
@@ -42,4 +56,9 @@ const enrichAttendanceLogs = (logs) =>
     };
   });
 
-module.exports = { matchOfficeFromCoords, enrichAttendanceLogs };
+module.exports = {
+  parseLocationCoords,
+  matchOfficeFromCoords,
+  matchOfficeFromLocation,
+  enrichAttendanceLogs,
+};

@@ -1,6 +1,6 @@
 const Attendance = require('../models/Attendance');
 const officeLocation = require('../config/officeLocation');
-const { matchOfficeFromCoords, enrichAttendanceLogs } = require('../utils/officeMatch');
+const { matchOfficeFromLocation, enrichAttendanceLogs } = require('../utils/officeMatch');
 
 exports.markAttendance = async (req, res) => {
   try {
@@ -8,8 +8,7 @@ exports.markAttendance = async (req, res) => {
       return res.status(400).json({ error: 'Invalid location format' });
     }
 
-    const [lat, lon] = req.body.location.split(',').map(parseFloat);
-    const match = matchOfficeFromCoords(lat, lon, officeLocation);
+    const match = matchOfficeFromLocation(req.body.location, officeLocation);
     const isInOffice = match.isInOffice;
     const matchedOfficeName = match.isInOffice ? match.officeName : null;
 
