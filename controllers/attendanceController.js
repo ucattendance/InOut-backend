@@ -1,11 +1,6 @@
 const Attendance = require('../models/Attendance');
-const User = require('../models/User');
 const officeLocation = require('../config/officeLocation');
-const {
-  branchToOfficeName,
-  matchOfficeWithPairing,
-  enrichAttendanceLogs,
-} = require('../utils/officeMatch');
+const { matchOfficeFromCoords, enrichAttendanceLogs } = require('../utils/officeMatch');
 
 exports.markAttendance = async (req, res) => {
   try {
@@ -14,24 +9,7 @@ exports.markAttendance = async (req, res) => {
     }
 
     const [lat, lon] = req.body.location.split(',').map(parseFloat);
-    const user = await User.findById(req.user._id).select('branch address bankDetails');
-    const preferredOfficeName = branchToOfficeName(user);
-
-    let pairedCheckIn = null;
-    if (req.body.type === 'check-out') {
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-      pairedCheckIn = await Attendance.findOne({
-        user: req.user._id,
-        type: 'check-in',
-        timestamp: { $gte: todayStart },
-      }).sort({ timestamp: -1 });
-    }
-
-    const match = matchOfficeWithPairing(lat, lon, officeLocation, {
-      preferredOfficeName,
-      pairedCheckIn,
-    });
+    const match = matchOfficeFromCoords(lat, lon, officeLocation);
     const isInOffice = match.isInOffice;
     const matchedOfficeName = match.isInOffice ? match.officeName : null;
 
@@ -40,7 +18,7 @@ exports.markAttendance = async (req, res) => {
       type: req.body.type,
       location: req.body.location,
       comment: req.body.comment || '',
-      image: req.file?.path || '', // Cloudinary URL or fallback
+      image: req.file?.path || '',
       isInOffice,
       officeName: matchedOfficeName || 'Outside Office',
       timestamp: new Date(),
