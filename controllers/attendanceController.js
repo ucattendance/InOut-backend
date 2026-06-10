@@ -56,7 +56,13 @@ exports.markAttendance = async (req, res) => {
     });
 
     await attendance.save();
-    res.json({ message: 'Attendance marked', isInOffice, office: matchedOfficeName });
+    res.json({
+      message: 'Attendance marked',
+      isInOffice,
+      office: matchedOfficeName,
+      type: attendance.type,
+      timestamp: attendance.timestamp,
+    });
   } catch (err) {
     console.error('Mark attendance error:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -75,9 +81,11 @@ exports.getAllAttendance = async (req, res) => {
 
 exports.getLastAttendance = async (req, res) => {
   try {
-    const lastRecord = await Attendance.findOne({ user: req.user._id }).sort({ timestamp: -1 });
-    if (!lastRecord) return res.status(200).json({ type: null });
-    res.json({ type: lastRecord.type });
+    const lastRecord = await Attendance.findOne({ user: req.user._id })
+      .sort({ timestamp: -1 })
+      .select('type timestamp');
+    if (!lastRecord) return res.status(200).json({ type: null, timestamp: null });
+    res.json({ type: lastRecord.type, timestamp: lastRecord.timestamp });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch last attendance' });
   }

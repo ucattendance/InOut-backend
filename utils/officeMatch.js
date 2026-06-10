@@ -101,20 +101,30 @@ const matchOfficeWithPairing = (lat, lon, offices, options = {}) => {
   return match;
 };
 
+/** Mongoose docs don't spread cleanly — fields sit under _doc, so convert first. */
+const toPlainLog = (log) => {
+  if (!log || typeof log !== 'object') return log;
+  if (typeof log.toObject === 'function') {
+    return log.toObject({ virtuals: false });
+  }
+  return log;
+};
+
 /** Recompute branch label from stored GPS; pair check-out with same-day check-in on read. */
 const enrichAttendanceLogs = (logs) => {
   const offices = require('../config/officeLocation');
   const enriched = (logs || []).map((log) => {
-    if (!log?.location) return log;
-    const branch = userBranchFromLog(log);
+    const plain = toPlainLog(log);
+    if (!plain?.location) return plain;
+    const branch = userBranchFromLog(plain);
     const preferredOfficeName = branchToOfficeName({
       branch,
       address: branch,
       bankDetails: { officeBranch: branch },
     });
-    const match = matchOfficeFromLocation(log.location, offices, { preferredOfficeName });
+    const match = matchOfficeFromLocation(plain.location, offices, { preferredOfficeName });
     return {
-      ...log,
+      ...plain,
       officeName: match.officeName,
       isInOffice: match.isInOffice,
     };
@@ -149,7 +159,7 @@ const enrichAttendanceLogs = (logs) => {
       pairedCheckIn: checkIn,
     });
     return {
-      ...log,
+      ...toPlainLog(log),
       officeName: match.officeName,
       isInOffice: match.isInOffice,
     };
@@ -157,6 +167,7 @@ const enrichAttendanceLogs = (logs) => {
 };
 
 module.exports = {
+  toPlainLog,
   parseLocationCoords,
   branchToOfficeName,
   matchOfficeFromCoords,
