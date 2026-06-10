@@ -45,8 +45,28 @@ const loadEmployeeMaps = async () => {
 /** Resolve employee from attendance.user (ObjectId, id string, or employeeId like UC0031). */
 const resolveEmployee = (userRef, maps) => {
   if (userRef == null || !maps) return null;
+
+  if (typeof userRef === 'object' && userRef._id) {
+    return resolveEmployee(userRef._id, maps);
+  }
+
   const raw = String(userRef).trim();
-  return maps.byId.get(raw) || maps.byEmpId.get(raw) || null;
+  if (!raw || raw === '[object Object]') return null;
+
+  const direct = maps.byId.get(raw) || maps.byEmpId.get(raw);
+  if (direct) return direct;
+
+  if (mongoose.Types.ObjectId.isValid(raw)) {
+    const byOid = maps.byId.get(String(new mongoose.Types.ObjectId(raw)));
+    if (byOid) return byOid;
+  }
+
+  const lower = raw.toLowerCase();
+  for (const [empId, user] of maps.byEmpId) {
+    if (String(empId).toLowerCase() === lower) return user;
+  }
+
+  return null;
 };
 
 const formatAttendanceRow = (record, user) => ({
@@ -98,13 +118,65 @@ const serializeAttendanceRows = (logs) =>
   });
 
 const parseDateRange = (dateStr) => {
-  const parts = String(dateStr || '').trim().split('-').map(Number);
-  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return null;
-  const [year, month, day] = parts;
+  const raw = String(dateStr || '').trim();
+  if (!raw) return null;
+
+  let year;
+  let month;
+  let day;
+
+  if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(raw)) {
+    [year, month, day] = raw.split('-').map(Number);
+  } else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(raw)) {
+    [month, day, year] = raw.split('/').map(Number);
+  } else if (/^\d{1,2}-\d{1,2}-\d{4}$/.test(raw)) {
+    [month, day, year] = raw.split('-').map(Number);
+  } else {
+    return null;
+  }
+
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+
   return {
     start: new Date(year, month - 1, day, 0, 0, 0, 0),
     end: new Date(year, month - 1, day, 23, 59, 59, 999),
   };
+};
+
+/** Fetch attendance for a calendar day, including legacy rows that only have ObjectId time. */
+const fetchAttendanceInRange = async (start, end) => {
+  const byId = new Map();
+
+  const dated = await Attendance.find({
+    timestamp: { $gte: start, $lte: end },
+  })
+    .sort({ timestamp: 1, _id: 1 })
+    .lean();
+
+  for (const row of dated) {
+    byId.set(String(row._id), row);
+  }
+
+  const startSeconds = Math.floor(start.getTime() / 1000);
+  const endSeconds = Math.floor(end.getTime() / 1000);
+  const minOid = mongoose.Types.ObjectId.createFromTime(startSeconds);
+  const maxOid = mongoose.Types.ObjectId.createFromTime(endSeconds);
+
+  const legacy = await Attendance.find({
+    $or: [{ timestamp: null }, { timestamp: { $exists: false } }],
+    _id: { $gte: minOid, $lte: maxOid },
+  }).lean();
+
+  for (const row of legacy) {
+    byId.set(String(row._id), row);
+  }
+
+  return [...byId.values()].sort((a, b) => {
+    const ta = getAttendanceTimestamp(a)?.getTime() || 0;
+    const tb = getAttendanceTimestamp(b)?.getTime() || 0;
+    return ta - tb || String(a._id).localeCompare(String(b._id));
+  });
 };
 
 module.exports = {
@@ -114,6 +186,7 @@ module.exports = {
   joinAttendanceToEmployees,
   serializeAttendanceRows,
   parseDateRange,
+  fetchAttendanceInRange,
   clearEmployeeMapsCache: () => {
     employeeMapsCache = null;
     employeeMapsCacheTime = 0;

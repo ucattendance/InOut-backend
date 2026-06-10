@@ -14,6 +14,7 @@ const {
   joinAttendanceToEmployees,
   serializeAttendanceRows,
   parseDateRange,
+  fetchAttendanceInRange,
 } = require('../utils/attendanceQuery');
 
 const resolveAttendanceUserIds = async (userId) => {
@@ -239,12 +240,7 @@ exports.getAttendanceByDate = async (req, res) => {
       return res.status(400).json({ error: 'Invalid date. Use YYYY-MM-DD.' });
     }
 
-    const records = await Attendance.find({
-      timestamp: { $gte: range.start, $lte: range.end },
-    })
-      .sort({ timestamp: 1, _id: 1 })
-      .lean();
-
+    const records = await fetchAttendanceInRange(range.start, range.end);
     const joined = await joinAttendanceToEmployees(records);
     res.json(serializeAttendanceRows(joined));
   } catch (error) {

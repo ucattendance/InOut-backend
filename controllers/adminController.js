@@ -11,6 +11,7 @@ const {
   parseDateRange,
   resolveEmployee,
   loadEmployeeMaps,
+  fetchAttendanceInRange,
 } = require('../utils/attendanceQuery');
 
 let cachedAttendance = null;
@@ -21,19 +22,26 @@ let cacheRecentAttendanceTime = null;
 const ATTENDANCE_CACHE_TTL = 60 * 1000;
 
 const fetchAttendanceRecords = async ({ days, date } = {}) => {
-  const query = {};
-
   if (date) {
     const range = parseDateRange(date);
-    if (range) query.timestamp = { $gte: range.start, $lte: range.end };
-  } else if (days) {
-    const start = new Date();
-    start.setDate(start.getDate() - days);
-    start.setHours(0, 0, 0, 0);
-    query.timestamp = { $gte: start };
+    if (range) {
+      const rows = await fetchAttendanceInRange(range.start, range.end);
+      return rows.sort((a, b) => {
+        const ta = new Date(a.timestamp || 0).getTime();
+        const tb = new Date(b.timestamp || 0).getTime();
+        return tb - ta || String(b._id).localeCompare(String(a._id));
+      });
+    }
   }
 
-  return Attendance.find(query).sort({ timestamp: -1, _id: -1 }).lean();
+  const query = {};
+  const effectiveDays = Number.isFinite(days) && days > 0 ? days : 30;
+  const start = new Date();
+  start.setDate(start.getDate() - effectiveDays);
+  start.setHours(0, 0, 0, 0);
+  query.timestamp = { $gte: start };
+
+  return Attendance.find(query).sort({ timestamp: -1, _id: -1 }).limit(2000).lean();
 };
 
 const adminController = {
@@ -47,13 +55,10 @@ const adminController = {
       const todayEnd = new Date();
       todayEnd.setHours(23, 59, 59, 999);
 
-      const todayCheckIns = await Attendance.find({
-        timestamp: { $gte: todayStart, $lte: todayEnd },
-        type: 'check-in',
-      }).lean();
-
+      const todayRecords = await fetchAttendanceInRange(todayStart, todayEnd);
       const presentIds = new Set();
-      for (const row of todayCheckIns) {
+      for (const row of todayRecords) {
+        if (row.type !== 'check-in') continue;
         const user = resolveEmployee(row.user, maps);
         if (user) presentIds.add(String(user._id));
       }
@@ -87,7 +92,7 @@ const adminController = {
 
       const records = await fetchAttendanceRecords({
         date,
-        days: Number.isFinite(days) && days > 0 ? days : null,
+        days: Number.isFinite(days) && days > 0 ? days : undefined,
       });
       const joined = await joinAttendanceToEmployees(records);
       const enriched = serializeAttendanceRows(joined);
