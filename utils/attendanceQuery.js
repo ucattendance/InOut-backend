@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const Attendance = require('../models/Attendance');
 const User = require('../models/User');
 const { enrichAttendanceLogs, getAttendanceTimestamp } = require('./officeMatch');
 
@@ -158,26 +159,18 @@ const fetchAttendanceInRange = async (start, end) => {
     byId.set(String(row._id), row);
   }
 
-  try {
-    if (typeof mongoose.Types.ObjectId.createFromTime === 'function') {
-      const startSeconds = Math.floor(start.getTime() / 1000);
-      const endSeconds = Math.floor(end.getTime() / 1000);
-      const minOid = mongoose.Types.ObjectId.createFromTime(startSeconds);
-      const maxOid = mongoose.Types.ObjectId.createFromTime(endSeconds);
+  const startSeconds = Math.floor(start.getTime() / 1000);
+  const endSeconds = Math.floor(end.getTime() / 1000);
+  const minOid = mongoose.Types.ObjectId.createFromTime(startSeconds);
+  const maxOid = mongoose.Types.ObjectId.createFromTime(endSeconds);
 
-      const legacy = await Attendance.find({
-        $or: [{ timestamp: null }, { timestamp: { $exists: false } }],
-        _id: { $gte: minOid, $lte: maxOid },
-      })
-        .limit(500)
-        .lean();
+  const legacy = await Attendance.find({
+    $or: [{ timestamp: null }, { timestamp: { $exists: false } }],
+    _id: { $gte: minOid, $lte: maxOid },
+  }).lean();
 
-      for (const row of legacy) {
-        byId.set(String(row._id), row);
-      }
-    }
-  } catch (legacyErr) {
-    console.error('Legacy attendance scan skipped:', legacyErr.message);
+  for (const row of legacy) {
+    byId.set(String(row._id), row);
   }
 
   return [...byId.values()].sort((a, b) => {
