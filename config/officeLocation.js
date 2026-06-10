@@ -3,14 +3,14 @@
 module.exports = [
   {
     name: 'Pallikaranai',
-    branchName: 'Chennai Pallikarani',
+    branchName: 'Pallikaranai',
     latitude: 12.94198577,
     longitude: 80.21012198,
     radiusMeters: 200,
   },
   {
     name: 'Velechery',
-    branchName: 'Chennai Velachery',
+    branchName: 'Velachery',
     latitude: 12.9912597,
     longitude: 80.2201616,
     radiusMeters: 400,
