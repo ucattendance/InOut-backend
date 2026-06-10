@@ -12,7 +12,7 @@ const parseLocationCoords = (locationString) => {
   return { lat, lon };
 };
 
-/** Nearest office within its radius → branch name; otherwise Outside Office. */
+/** GPS only — user profile branch is NOT used. Nearest office within radius, else Outside Office. */
 const matchOfficeFromCoords = (lat, lon, offices) => {
   const userLocation = { latitude: lat, longitude: lon };
   let best = null;
