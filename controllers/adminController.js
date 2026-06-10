@@ -47,27 +47,36 @@ const fetchAttendanceRecords = async ({ days, date } = {}) => {
 const adminController = {
   getAdminSummary: async (req, res) => {
     try {
-      const maps = await loadEmployeeMaps();
-      const totalEmployees = maps.byId.size;
+      const [totalEmployees, maps] = await Promise.all([
+        User.countDocuments({ role: 'employee', isActive: { $ne: false } }),
+        loadEmployeeMaps(),
+      ]);
 
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
       const todayEnd = new Date();
       todayEnd.setHours(23, 59, 59, 999);
 
-      const checkInUserIds = await Attendance.find({
+      const checkIns = await Attendance.find({
         type: 'check-in',
         timestamp: { $gte: todayStart, $lte: todayEnd },
-      }).distinct('user');
+      })
+        .select('user')
+        .lean();
 
       const presentIds = new Set();
-      for (const userRef of checkInUserIds) {
-        const employee = resolveEmployee(userRef, maps);
-        if (employee) presentIds.add(String(employee._id));
+      for (const row of checkIns) {
+        try {
+          const employee = resolveEmployee(row.user, maps);
+          if (employee) presentIds.add(String(employee._id));
+        } catch (rowErr) {
+          console.warn('Summary: skip row', row._id, rowErr.message);
+        }
       }
 
       const presentToday = presentIds.size;
       const absentToday = Math.max(0, totalEmployees - presentToday);
+
       res.json({ totalEmployees, presentToday, absentToday });
     } catch (error) {
       console.error('Error fetching summary:', error);
@@ -102,7 +111,7 @@ const adminController = {
         enriched = serializeAttendanceRows(joined);
       } catch (joinErr) {
         console.error('Dashboard join/serialize failed:', joinErr.message);
-        enriched = records.map((row) => ({
+        enriched = (records || []).map((row) => ({
           employeeName: 'Unknown',
           userId: row.user ? String(row.user) : null,
           type: row.type,
@@ -122,7 +131,7 @@ const adminController = {
       return res.json(enriched);
     } catch (err) {
       console.error('Error:', err);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Server error' });
     }
   },
 
