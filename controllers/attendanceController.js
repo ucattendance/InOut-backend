@@ -38,6 +38,20 @@ const addRows = (map, rows) => {
   }
 };
 
+const formatUserRef = (user) => {
+  if (user == null) return null;
+  if (user instanceof mongoose.Types.ObjectId) return String(user);
+  if (typeof user === 'string') return user;
+  if (typeof user === 'object') {
+    return {
+      _id: user._id ? String(user._id) : undefined,
+      name: user.name,
+      email: user.email,
+    };
+  }
+  return String(user);
+};
+
 const findAttendanceForUser = async (userId) => {
   const primary = await User.findById(userId).select('employeeId email phone name');
   const userIds = await resolveAttendanceUserIds(userId);
@@ -55,20 +69,24 @@ const findAttendanceForUser = async (userId) => {
   const unique = new Map();
 
   if (filters.length) {
+    // Do not populate — legacy rows store employeeId strings in `user`, which breaks populate.
     const rows = await Attendance.find({ $or: filters })
       .sort({ timestamp: -1, _id: -1 })
-      .populate('user', 'name email')
       .lean();
     addRows(unique, rows);
   }
 
   if (primary?.employeeId) {
-    const legacy = await Attendance.find({
-      $expr: { $eq: [{ $toString: '$user' }, String(primary.employeeId)] },
-    })
-      .sort({ timestamp: -1, _id: -1 })
-      .lean();
-    addRows(unique, legacy);
+    try {
+      const legacy = await Attendance.find({
+        $expr: { $eq: [{ $toString: '$user' }, String(primary.employeeId)] },
+      })
+        .sort({ timestamp: -1, _id: -1 })
+        .lean();
+      addRows(unique, legacy);
+    } catch (legacyErr) {
+      console.error('Legacy attendance $expr lookup failed:', legacyErr.message);
+    }
   }
 
   return [...unique.values()].sort((a, b) => {
@@ -78,19 +96,40 @@ const findAttendanceForUser = async (userId) => {
   });
 };
 
-const serializeAttendanceList = (records) =>
-  enrichAttendanceLogs(records).map((row) => {
-    const ts = getAttendanceTimestamp(row);
-    return {
-      ...row,
-      _id: row._id ? String(row._id) : row._id,
-      type: String(row.type || '').trim(),
-      user: row.user
-        ? { ...row.user, _id: row.user._id ? String(row.user._id) : row.user._id }
-        : row.user,
-      timestamp: ts ? ts.toISOString() : null,
-    };
-  });
+const serializeAttendanceList = (records) => {
+  try {
+    return enrichAttendanceLogs(records).map((row) => {
+      const ts = getAttendanceTimestamp(row);
+      return {
+        _id: row._id ? String(row._id) : row._id,
+        type: String(row.type || '').trim(),
+        location: row.location || '',
+        isInOffice: row.isInOffice,
+        officeName: row.officeName || 'Outside Office',
+        image: row.image || '',
+        comment: row.comment || '',
+        user: formatUserRef(row.user),
+        timestamp: ts ? ts.toISOString() : null,
+      };
+    });
+  } catch (err) {
+    console.error('serializeAttendanceList failed:', err.message);
+    return (records || []).map((row) => {
+      const ts = getAttendanceTimestamp(row);
+      return {
+        _id: row._id ? String(row._id) : row._id,
+        type: String(row.type || '').trim(),
+        location: row.location || '',
+        isInOffice: row.isInOffice,
+        officeName: row.officeName || 'Outside Office',
+        image: row.image || '',
+        comment: row.comment || '',
+        user: formatUserRef(row.user),
+        timestamp: ts ? ts.toISOString() : null,
+      };
+    });
+  }
+};
 
 exports.markAttendance = async (req, res) => {
   try {
@@ -263,7 +302,17 @@ exports.getMyAttendance = async (req, res) => {
     res.json(serializeAttendanceList(records));
   } catch (error) {
     console.error('Error fetching my attendance:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    try {
+      const filters = userIdFilters(req.user._id);
+      const fallback = await Attendance.find(filters.length ? { $or: filters } : {})
+        .sort({ timestamp: -1, _id: -1 })
+        .limit(2000)
+        .lean();
+      res.json(serializeAttendanceList(fallback));
+    } catch (fallbackErr) {
+      console.error('getMyAttendance fallback failed:', fallbackErr);
+      res.status(500).json({ error: 'Internal server error' });
+    }
   }
 };
 
