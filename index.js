@@ -11,9 +11,14 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: ['https://inout.urbancode.tech', 'http://localhost:3000'],
+  origin(origin, callback) {
+    if (!origin) return callback(null, true);
+    if (origin === 'https://inout.urbancode.tech') return callback(null, true);
+    if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'Pragma'],
 }));
 app.use(express.json());
 
