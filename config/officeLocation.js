@@ -3,14 +3,14 @@
 module.exports = [
   {
     name: 'Pallikaranai',
-    branchName: 'Pallikaranai',
+    branchName: 'Chennai Pallikarani',
     latitude: 12.94198577,
     longitude: 80.21012198,
     radiusMeters: 200,
   },
   {
     name: 'Velechery',
-    branchName: 'Velachery',
+    branchName: 'Chennai Velachery',
     latitude: 12.9912597,
     longitude: 80.2201616,
     radiusMeters: 400,
@@ -18,9 +18,8 @@ module.exports = [
   {
     name: 'Tirunelveli',
     branchName: 'Tirunelveli',
-    // Fab Sapphire Towers, S Bypass Rd, Vasanth Nagar (was ~2.8km off — caused Outside Office)
-    latitude: 8.7237565,
-    longitude: 77.722212,
-    radiusMeters: 2000,
+    latitude: 8.6988125,
+    longitude: 77.7269375,
+    radiusMeters: 750,
   },
 ];

@@ -5,44 +5,61 @@ const User = require('../models/User');
 const PendingUser = require('../models/PendingUser');
 const Schedule = require('../models/Schedule');
 const Attendance = require('../models/Attendance');
-const { enrichAttendanceLogs } = require('../utils/officeMatch');
+const {
+  joinAttendanceToEmployees,
+  serializeAttendanceRows,
+  parseDateRange,
+  resolveEmployee,
+  loadEmployeeMaps,
+} = require('../utils/attendanceQuery');
 
 let cachedAttendance = null;
 let cacheTimestamp = null;
 const CACHE_TTL = 15 * 1000;
 let cachedRecentAttendance = null;
 let cacheRecentAttendanceTime = null;
-const ATTENDANCE_CACHE_TTL = 60 * 1000; // 15 seconds
+const ATTENDANCE_CACHE_TTL = 60 * 1000;
 
+const fetchAttendanceRecords = async ({ days, date } = {}) => {
+  const query = {};
+
+  if (date) {
+    const range = parseDateRange(date);
+    if (range) query.timestamp = { $gte: range.start, $lte: range.end };
+  } else if (days) {
+    const start = new Date();
+    start.setDate(start.getDate() - days);
+    start.setHours(0, 0, 0, 0);
+    query.timestamp = { $gte: start };
+  }
+
+  return Attendance.find(query).sort({ timestamp: -1, _id: -1 }).lean();
+};
 
 const adminController = {
   getAdminSummary: async (req, res) => {
     try {
-      // Count only active employees
-      const totalEmployees = await User.countDocuments({
-        role: 'employee',
-        isActive: { $ne: false },
-      });
+      const maps = await loadEmployeeMaps();
+      const totalEmployees = maps.byId.size;
 
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
       const todayEnd = new Date();
       todayEnd.setHours(23, 59, 59, 999);
 
-      // Get distinct user ids who checked in today
-      const todayAttendanceUserIds = await Attendance.find({
+      const todayCheckIns = await Attendance.find({
         timestamp: { $gte: todayStart, $lte: todayEnd },
-        type: 'check-in'
-      }).distinct('user');
+        type: 'check-in',
+      }).lean();
 
-      // Only count those users who are active employees
-      const presentToday = await User.countDocuments({
-        _id: { $in: todayAttendanceUserIds },
-        role: 'employee',
-        isActive: { $ne: false },
-      });
+      const presentIds = new Set();
+      for (const row of todayCheckIns) {
+        const user = resolveEmployee(row.user, maps);
+        if (user) presentIds.add(String(user._id));
+      }
 
-      const absentToday = totalEmployees - presentToday;
+      const presentToday = presentIds.size;
+      const absentToday = Math.max(0, totalEmployees - presentToday);
 
       res.json({ totalEmployees, presentToday, absentToday });
     } catch (error) {
@@ -54,162 +71,64 @@ const adminController = {
   getRecentAttendanceDashboard: async (req, res) => {
     try {
       const now = Date.now();
+      const date = req.query.date;
+      const days = Number.parseInt(req.query.days, 10);
+      const cacheKey = date || (Number.isFinite(days) ? `days-${days}` : 'all');
 
-      // 1️⃣ Check if cache exists AND is not expired
-      if (cachedAttendance && cacheTimestamp && now - cacheTimestamp < CACHE_TTL) {
-        console.log("📦 Returning cached attendance");
-        return res.json(cachedAttendance);
+      if (
+        !date &&
+        cachedAttendance &&
+        cacheTimestamp &&
+        now - cacheTimestamp < CACHE_TTL &&
+        cachedAttendance._key === cacheKey
+      ) {
+        return res.json(cachedAttendance.data);
       }
 
-      console.log("🆕 Cache expired → Fetching from DB");
+      const records = await fetchAttendanceRecords({
+        date,
+        days: Number.isFinite(days) && days > 0 ? days : null,
+      });
+      const joined = await joinAttendanceToEmployees(records);
+      const enriched = serializeAttendanceRows(joined);
 
-      // 2️⃣ Calculate last 30 days
-      const end = new Date();
-      end.setHours(23, 59, 59, 999);
-      const start = new Date();
-      start.setDate(start.getDate() - 30);
-      start.setHours(0, 0, 0, 0);
-
-      // 3️⃣ Run your aggregation
-      const logs = await Attendance.aggregate([
-        {
-          $match: { timestamp: { $gte: start, $lte: end } }
-        },
-        {
-          $lookup: {
-            from: "users",
-            localField: "user",
-            foreignField: "_id",
-            as: "userData"
-          }
-        },
-        { $unwind: "$userData" },
-        {
-          $match: {
-            "userData.role": "employee",
-            "userData.isActive": { $ne: false }
-          }
-        },
-        {
-          $project: {
-            _id: 0,
-            employeeName: "$userData.name",
-            userId: "$userData._id",
-            role: "$userData.role",
-            employeeId: "$userData.employeeId",
-            position: "$userData.position",
-            department: "$userData.department",
-            company: "$userData.company",
-            dateOfRelieving: "$userData.dateOfRelieving",
-            type: 1,
-            timestamp: 1,
-            location: 1,
-            isInOffice: 1,
-            officeName: { $ifNull: ["$officeName", "Outside Office"] },
-            image: { $ifNull: ["$image", ""] },
-            comment: { $ifNull: ["$comment", ""] }
-          }
-        },
-        { $sort: { timestamp: -1 } },
-        { $limit: 1500 }
-      ]);
-
-      const enriched = enrichAttendanceLogs(logs);
-
-      // 4️⃣ Save to cache
-      cachedAttendance = enriched;
-      cacheTimestamp = now;
+      if (!date) {
+        cachedAttendance = { _key: cacheKey, data: enriched };
+        cacheTimestamp = now;
+      }
 
       return res.json(enriched);
-
     } catch (err) {
-      console.error("Error:", err);
-      res.status(500).json({ error: "Server error" });
+      console.error('Error:', err);
+      res.status(500).json({ error: 'Server error' });
     }
   },
-
-
-
-
-
 
   getRecentAttendance: async (req, res) => {
     try {
       const now = Date.now();
 
-      // 1️⃣ If cache available and not expired → return cached response
       if (
         cachedRecentAttendance &&
         cacheRecentAttendanceTime &&
         now - cacheRecentAttendanceTime < ATTENDANCE_CACHE_TTL
       ) {
-        console.log("📦 Returning cached RECENT ATTENDANCE");
         return res.json(cachedRecentAttendance);
       }
 
-      console.log("🆕 Cache expired → Fetching RECENT ATTENDANCE from DB");
+      const records = await Attendance.find({}).sort({ timestamp: -1, _id: -1 }).lean();
+      const joined = await joinAttendanceToEmployees(records);
+      const enriched = serializeAttendanceRows(joined);
 
-      // 2️⃣ Fetch from database (optimized version)
-      const logs = await Attendance.aggregate([
-        {
-          $lookup: {
-            from: "users",
-            localField: "user",
-            foreignField: "_id",
-            as: "userData"
-          }
-        },
-        { $unwind: "$userData" },
-        {
-          $match: {
-            "userData.role": "employee",
-            "userData.isActive": { $ne: false }
-          }
-        },
-        {
-          $project: {
-            _id: 0,
-            employeeName: "$userData.name",
-            userId: "$userData._id",
-            role: "$userData.role",
-            employeeId: "$userData.employeeId",
-            position: "$userData.position",
-            department: "$userData.department",
-            company: "$userData.company",
-            dateOfRelieving: "$userData.dateOfRelieving",
-            dateOfJoining: "$userData.dateOfJoining",
-            dateOfBirth: "$userData.dateOfBirth",
-            bankingName: "$userData.bankDetails.bankingName",
-            dateOfBirth: "$userData.dateOfBirth",
-            accountNumber: "$userData.bankDetails.bankAccountNumber",
-            type: 1,
-            timestamp: 1,
-            location: 1,
-            isInOffice: 1,
-            officeName: { $ifNull: ["$officeName", "Outside Office"] },
-            image: { $ifNull: ["$image", ""] },
-            comment: { $ifNull: ["$comment", ""] }
-          }
-        },
-        { $sort: { timestamp: -1 } }
-      ]);
-
-      const enriched = enrichAttendanceLogs(logs);
-
-      // 3️⃣ Save to cache
       cachedRecentAttendance = enriched;
       cacheRecentAttendanceTime = now;
 
-      // 4️⃣ Send response
       res.json(enriched);
-
     } catch (error) {
-      console.error("Error fetching recent logs:", error);
-      res.status(500).json({ error: "Internal server error" });
+      console.error('Error fetching recent logs:', error);
+      res.status(500).json({ error: 'Internal server error' });
     }
   },
-
-
 
   getPendingUsers: async (req, res) => {
     try {
@@ -237,8 +156,8 @@ const adminController = {
         salary: pending.salary,
         department: pending.department,
         qualification: pending.qualification,
-  dateOfJoining: pending.dateOfJoining,
-  dateOfBirth: pending.dateOfBirth,
+        dateOfJoining: pending.dateOfJoining,
+        dateOfBirth: pending.dateOfBirth,
         employeeId: pending.employeeId,
         rolesAndResponsibility: pending.rolesAndResponsibility,
         skills: pending.skills,
@@ -246,14 +165,14 @@ const adminController = {
         bloodGroup: pending.bloodGroup,
         address: pending.address,
         bankDetails: pending.bankDetails,
-        schedule: pending.schedule
+        schedule: pending.schedule,
       });
       await user.save();
 
       if (pending.schedule) {
         const userSchedule = new Schedule({
           user: user._id,
-          weeklySchedule: pending.schedule
+          weeklySchedule: pending.schedule,
         });
         await userSchedule.save();
       }
@@ -277,13 +196,10 @@ const adminController = {
       console.error('Error rejecting user:', err);
       res.status(500).json({ error: 'Internal server error' });
     }
-  }
-,
+  },
 
-  // GET all uploaded letter copies across users (for admin)
   getAllLetters: async (req, res) => {
     try {
-      // unwind letterCopies and include user basic info
       const letters = await User.aggregate([
         { $unwind: { path: '$letterCopies', preserveNullAndEmptyArrays: false } },
         {
@@ -295,10 +211,10 @@ const adminController = {
             filename: '$letterCopies.filename',
             url: '$letterCopies.url',
             uploadedBy: '$letterCopies.uploadedBy',
-            uploadedAt: '$letterCopies.uploadedAt'
-          }
+            uploadedAt: '$letterCopies.uploadedAt',
+          },
         },
-        { $sort: { uploadedAt: -1 } }
+        { $sort: { uploadedAt: -1 } },
       ]);
 
       res.json(letters);
@@ -306,7 +222,7 @@ const adminController = {
       console.error('Error fetching all letters:', err);
       res.status(500).json({ error: 'Internal server error' });
     }
-  }
+  },
 };
 
 module.exports = adminController;

@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const Attendance = require('../models/Attendance');
 const officeLocation = require('../config/officeLocation');
-const { matchOfficeFromLocation } = require('../utils/officeMatch');
+const { matchOfficeFromCoords } = require('../utils/officeMatch');
 
 // ⛓️ Connect to your MongoDB
 mongoose.connect(process.env.MONGO_URI, {
@@ -16,7 +16,8 @@ const updateOfficeLocationForAll = async () => {
     for (const record of records) {
       if (!record.location || !record.location.includes(',')) continue;
 
-      const match = matchOfficeFromLocation(record.location, officeLocation);
+      const [lat, lon] = record.location.split(',').map(parseFloat);
+      const match = matchOfficeFromCoords(lat, lon, officeLocation);
 
       record.officeName = match.officeName;
       record.isInOffice = match.isInOffice;

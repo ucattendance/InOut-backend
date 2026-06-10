@@ -21,14 +21,12 @@ const parseLocationCoords = (locationString) => {
   if (!locationString || !String(locationString).includes(',')) return null;
   let [lat, lon] = String(locationString).split(',').map((v) => parseFloat(v.trim()));
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-  // South India: lat ~8–13, lon ~76–82 — if reversed, swap back
   if (lat > 20 && lon < 20) {
     [lat, lon] = [lon, lat];
   }
   return { lat, lon };
 };
 
-/** Map employee profile fields to office config `name`. */
 const branchToOfficeName = (user) => {
   const raw = [user?.branch, user?.bankDetails?.officeBranch, user?.address]
     .filter(Boolean)
@@ -54,7 +52,6 @@ const userBranchFromLog = (log) => {
   return user.branch || user.bankDetails?.officeBranch || user.address || null;
 };
 
-/** Nearest office within its radius → branch name; otherwise Outside Office. */
 const matchOfficeFromCoords = (lat, lon, offices, options = {}) => {
   const { preferredOfficeName } = options;
   const userLocation = { latitude: lat, longitude: lon };
@@ -89,7 +86,6 @@ const matchOfficeFromLocation = (locationString, offices, options = {}) => {
   return matchOfficeFromCoords(coords.lat, coords.lon, offices, options);
 };
 
-/** Check-out near same-day in-office check-in → keep office name (indoor GPS drift). */
 const matchOfficeWithPairing = (lat, lon, offices, options = {}) => {
   const { preferredOfficeName, pairedCheckIn } = options;
   const match = matchOfficeFromCoords(lat, lon, offices, { preferredOfficeName });
@@ -117,7 +113,6 @@ const matchOfficeWithPairing = (lat, lon, offices, options = {}) => {
   return match;
 };
 
-/** Mongoose docs don't spread cleanly — fields sit under _doc, so convert first. */
 const toPlainLog = (log) => {
   if (!log || typeof log !== 'object') return log;
   if (typeof log.toObject === 'function') {
@@ -126,7 +121,6 @@ const toPlainLog = (log) => {
   return log;
 };
 
-/** Recompute branch label from stored GPS; pair check-out with same-day check-in on read. */
 const enrichAttendanceLogs = (logs) => {
   const offices = require('../config/officeLocation');
   const enriched = (logs || []).map((log) => {
