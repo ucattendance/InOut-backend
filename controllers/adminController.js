@@ -55,25 +55,18 @@ const adminController = {
       const todayEnd = new Date();
       todayEnd.setHours(23, 59, 59, 999);
 
-      let presentToday = 0;
-      try {
-        const todayRecords = await fetchAttendanceInRange(todayStart, todayEnd);
-        const presentIds = new Set();
-        for (const row of todayRecords) {
-          if (row.type !== 'check-in') continue;
-          const user = resolveEmployee(row.user, maps);
-          if (user) presentIds.add(String(user._id));
-        }
-        presentToday = presentIds.size;
-      } catch (rangeErr) {
-        console.error('Summary range query failed, using fallback:', rangeErr.message);
-        const checkInUserIds = await Attendance.find({
-          type: 'check-in',
-          timestamp: { $gte: todayStart, $lte: todayEnd },
-        }).distinct('user');
-        presentToday = checkInUserIds.filter((id) => maps.byId.has(String(id))).length;
+      const checkInUserIds = await Attendance.find({
+        type: 'check-in',
+        timestamp: { $gte: todayStart, $lte: todayEnd },
+      }).distinct('user');
+
+      const presentIds = new Set();
+      for (const userRef of checkInUserIds) {
+        const employee = resolveEmployee(userRef, maps);
+        if (employee) presentIds.add(String(employee._id));
       }
 
+      const presentToday = presentIds.size;
       const absentToday = Math.max(0, totalEmployees - presentToday);
       res.json({ totalEmployees, presentToday, absentToday });
     } catch (error) {
