@@ -35,7 +35,7 @@ const fetchAttendanceRecords = async ({ days, date } = {}) => {
   }
 
   const query = {};
-  const effectiveDays = Number.isFinite(days) && days > 0 ? days : 365;
+  const effectiveDays = Number.isFinite(days) && days > 0 ? days : 730;
   const start = new Date();
   start.setDate(start.getDate() - effectiveDays);
   start.setHours(0, 0, 0, 0);
