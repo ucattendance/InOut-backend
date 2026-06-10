@@ -1,6 +1,7 @@
 const Attendance = require('../models/Attendance');
+const User = require('../models/User');
 const officeLocation = require('../config/officeLocation');
-const { matchOfficeFromCoords } = require('../utils/officeMatch');
+const { branchToOfficeName, matchOfficeFromCoords, enrichAttendanceLogs } = require('../utils/officeMatch');
 
 exports.markAttendance = async (req, res) => {
   try {
@@ -9,7 +10,9 @@ exports.markAttendance = async (req, res) => {
     }
 
     const [lat, lon] = req.body.location.split(',').map(parseFloat);
-    const match = matchOfficeFromCoords(lat, lon, officeLocation);
+    const user = await User.findById(req.user._id).select('branch address bankDetails');
+    const preferredOfficeName = branchToOfficeName(user);
+    const match = matchOfficeFromCoords(lat, lon, officeLocation, { preferredOfficeName });
     const isInOffice = match.isInOffice;
     const matchedOfficeName = match.isInOffice ? match.officeName : null;
 
@@ -91,7 +94,7 @@ exports.getAttendanceByUser = async (req, res) => {
   try {
     const records = await Attendance.find({ user: req.params.userId })
       .populate('user', 'name email');
-    res.json(records);
+    res.json(enrichAttendanceLogs(records));
   } catch (error) {
     console.error('Error fetching attendance records by user:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -102,7 +105,7 @@ exports.getMyAttendance = async (req, res) => {
   try {
     const records = await Attendance.find({ user: req.user._id })
       .populate('user', 'name email');
-    res.json(records);
+    res.json(enrichAttendanceLogs(records));
   } catch (error) {
     console.error('Error fetching my attendance:', error);
     res.status(500).json({ error: 'Internal server error' });

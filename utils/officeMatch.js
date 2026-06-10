@@ -1,7 +1,20 @@
 const haversine = require('haversine-distance');
 
+/** Map employee profile fields to office config `name`. */
+const branchToOfficeName = (user) => {
+  const raw = [user?.branch, user?.bankDetails?.officeBranch, user?.address]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  if (raw.includes('tirunel') || raw.includes('tvl')) return 'Tirunelveli';
+  if (raw.includes('pallikar')) return 'Pallikaranai';
+  if (raw.includes('velach') || raw.includes('velech')) return 'Velechery';
+  return null;
+};
+
 /** Nearest office within its radius → branch name; otherwise Outside Office. */
-const matchOfficeFromCoords = (lat, lon, offices) => {
+const matchOfficeFromCoords = (lat, lon, offices, options = {}) => {
+  const { preferredOfficeName } = options;
   const userLocation = { latitude: lat, longitude: lon };
   let best = null;
 
@@ -11,7 +24,12 @@ const matchOfficeFromCoords = (lat, lon, offices) => {
       longitude: office.longitude,
     });
 
-    if (distance <= office.radiusMeters) {
+    let radius = office.radiusMeters;
+    if (preferredOfficeName && office.name === preferredOfficeName) {
+      radius = Math.round(radius * 1.5);
+    }
+
+    if (distance <= radius) {
       if (!best || distance < best.distanceMeters) {
         best = {
           officeName: office.branchName || office.name,
@@ -43,4 +61,4 @@ const enrichAttendanceLogs = (logs) =>
     };
   });
 
-module.exports = { matchOfficeFromCoords, enrichAttendanceLogs };
+module.exports = { branchToOfficeName, matchOfficeFromCoords, enrichAttendanceLogs };

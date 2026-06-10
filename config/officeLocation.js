@@ -18,8 +18,9 @@ module.exports = [
   {
     name: 'Tirunelveli',
     branchName: 'Tirunelveli',
-    latitude: 8.6988125,
-    longitude: 77.7269375,
-    radiusMeters: 750,
+    // Fab Sapphire Towers, S Bypass Rd, Vasanth Nagar (was ~2.8km off — caused Outside Office)
+    latitude: 8.7237565,
+    longitude: 77.722212,
+    radiusMeters: 800,
   },
 ];
