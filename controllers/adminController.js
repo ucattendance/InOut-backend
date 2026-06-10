@@ -96,6 +96,12 @@ const adminController = {
             department: "$userData.department",
             company: "$userData.company",
             dateOfRelieving: "$userData.dateOfRelieving",
+            userBranch: {
+              $ifNull: [
+                "$userData.branch",
+                { $ifNull: ["$userData.bankDetails.officeBranch", "$userData.address"] },
+              ],
+            },
             type: 1,
             timestamp: 1,
             location: 1,
@@ -177,6 +183,12 @@ const adminController = {
             bankingName: "$userData.bankDetails.bankingName",
             dateOfBirth: "$userData.dateOfBirth",
             accountNumber: "$userData.bankDetails.bankAccountNumber",
+            userBranch: {
+              $ifNull: [
+                "$userData.branch",
+                { $ifNull: ["$userData.bankDetails.officeBranch", "$userData.address"] },
+              ],
+            },
             type: 1,
             timestamp: 1,
             location: 1,

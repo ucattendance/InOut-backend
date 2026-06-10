@@ -12,6 +12,14 @@ const branchToOfficeName = (user) => {
   return null;
 };
 
+const effectiveRadius = (office, preferredOfficeName) => {
+  let radius = office.radiusMeters;
+  if (!preferredOfficeName || office.name !== preferredOfficeName) return radius;
+  // Tirunelveli indoor GPS is often 1–2 km off; widen when employee branch matches.
+  if (office.name === 'Tirunelveli') return 2500;
+  return Math.round(radius * 1.5);
+};
+
 /** Nearest office within its radius → branch name; otherwise Outside Office. */
 const matchOfficeFromCoords = (lat, lon, offices, options = {}) => {
   const { preferredOfficeName } = options;
@@ -24,10 +32,7 @@ const matchOfficeFromCoords = (lat, lon, offices, options = {}) => {
       longitude: office.longitude,
     });
 
-    let radius = office.radiusMeters;
-    if (preferredOfficeName && office.name === preferredOfficeName) {
-      radius = Math.round(radius * 1.5);
-    }
+    const radius = effectiveRadius(office, preferredOfficeName);
 
     if (distance <= radius) {
       if (!best || distance < best.distanceMeters) {
@@ -53,7 +58,14 @@ const enrichAttendanceLogs = (logs) =>
     }
     const [lat, lon] = String(log.location).split(',').map(parseFloat);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return log;
-    const match = matchOfficeFromCoords(lat, lon, require('../config/officeLocation'));
+    const preferredOfficeName = branchToOfficeName({
+      branch: log.userBranch,
+      address: log.userBranch,
+      bankDetails: { officeBranch: log.userBranch },
+    });
+    const match = matchOfficeFromCoords(lat, lon, require('../config/officeLocation'), {
+      preferredOfficeName,
+    });
     return {
       ...log,
       officeName: match.officeName,
@@ -61,4 +73,4 @@ const enrichAttendanceLogs = (logs) =>
     };
   });
 
-module.exports = { branchToOfficeName, matchOfficeFromCoords, enrichAttendanceLogs };
+module.exports = { branchToOfficeName, matchOfficeFromCoords, enrichAttendanceLogs, effectiveRadius };

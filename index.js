@@ -40,7 +40,7 @@ try {
 
 // Ping Route
 app.get('/ping', (req, res) => res.send('pong'));
-app.get('/version', (req, res) => res.json({ build: 'tirunelveli-gps-v2' }));
+app.get('/version', (req, res) => res.json({ build: 'tirunelveli-gps-v3' }));
 
 // Route Mounts 
 app.use('/attendance', require('./routes/attendanceRoutes'));
