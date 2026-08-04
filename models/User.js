@@ -135,7 +135,22 @@ const UserSchema = new mongoose.Schema({
       }
     ],
     default: []
-  }
+  },
+
+  // Profile-completion grace / attendance lock (backend-only; no countdown shown to users)
+  profileIncompleteSince: {
+    type: Date,
+    default: null,
+  },
+  attendanceLocked: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+  attendanceLockedAt: {
+    type: Date,
+    default: null,
+  },
 
 }, {
   timestamps: true

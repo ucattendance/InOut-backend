@@ -12,5 +12,6 @@ router.post('/approve/:id', auth, role('admin'), adminController.approveUser);
 router.delete('/reject/:id', auth, role('admin'), adminController.rejectUser);
 // Get all uploaded letter copies (admin)
 router.get('/letters', auth, role('admin'), adminController.getAllLetters);
+router.post('/users/:id/unlock-attendance', auth, role('admin'), adminController.unlockAttendance);
 
 module.exports = router;

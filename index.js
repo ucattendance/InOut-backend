@@ -95,10 +95,15 @@ app.get('/employeesAttendance',authMiddleware, async (req, res) => {
 // Start server
 async function startServer() {
   try {
+    if (!process.env.MONGO_URI) {
+      console.error('Missing MONGO_URI. Copy .env.example to .env and set your MongoDB connection string.');
+      process.exit(1);
+    }
     await mongoose.connect(process.env.MONGO_URI);
     console.log('MongoDB connected');
-    
-    app.listen(process.env.PORT ||5000, () => console.log('Server running on port 5000'));
+
+    const port = process.env.PORT || 5000;
+    app.listen(port, () => console.log(`Server running on port ${port}`));
   } catch (err) {
     console.error('MongoDB connection error:', err.message);
     process.exit(1);

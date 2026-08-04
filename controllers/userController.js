@@ -5,6 +5,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Schedule = require('../models/Schedule');
+const { clearIncompleteTrackingIfComplete } = require('../utils/profileCompletion');
 
 const applyBankDetailsToUpdate = (updateData, bankDetails) => {
   if (!bankDetails || typeof bankDetails !== 'object') return;
@@ -44,6 +45,9 @@ const userController = {
         bankDetails: 1,
         adminComments: 1,
         employeeId: 1,
+        attendanceLocked: 1,
+        profileIncompleteSince: 1,
+        attendanceLockedAt: 1,
         createdAt: 1,
         updatedAt: 1
       }).sort({name: 1});
@@ -143,6 +147,8 @@ const userController = {
 
       if (!updated) return res.status(404).json({ message: 'User not found' });
 
+      await clearIncompleteTrackingIfComplete(updated);
+
       res.json(updated);
     } catch (error) {
       console.error('Error in updateProfile:', error);
@@ -229,6 +235,8 @@ const userController = {
     ).select('-password');
 
     if (!updatedUser) return res.status(404).json({ error: 'User not found' });
+
+    await clearIncompleteTrackingIfComplete(updatedUser);
 
     res.json({ message: 'User updated successfully', user: updatedUser });
   } catch (err) {

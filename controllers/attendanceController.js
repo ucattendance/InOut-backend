@@ -16,6 +16,7 @@ const {
   parseDateRange,
   fetchAttendanceInRange,
 } = require('../utils/attendanceQuery');
+const { applyProfileGateOnCheckIn } = require('../utils/profileCompletion');
 
 const resolveAttendanceUserIds = async (userId) => {
   const user = await User.findById(userId).select('email employeeId phone name');
@@ -146,7 +147,44 @@ exports.markAttendance = async (req, res) => {
       return res.status(400).json({ error: 'Invalid location format' });
     }
 
-    const user = await User.findById(req.user._id).select('branch address bankDetails');
+    const profileSelect =
+      'branch address bankDetails bloodGroup dateOfBirth dateOfJoining skills rolesAndResponsibility company position profileIncompleteSince attendanceLocked attendanceLockedAt';
+    const user = await User.findById(req.user._id).select(profileSelect);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    let profileGate = {
+      locked: Boolean(user.attendanceLocked),
+      profileIncomplete: false,
+      missingFields: [],
+      justLocked: false,
+    };
+
+    // Profile gate + 3-day lock apply to check-in only (backend is source of truth)
+    if (req.body.type === 'check-in') {
+      if (user.attendanceLocked) {
+        return res.status(403).json({
+          error: 'Attendance locked',
+          code: 'ATTENDANCE_LOCKED',
+          message:
+            'Your attendance has been locked because your profile is incomplete. Contact an admin to unlock.',
+        });
+      }
+
+      profileGate = await applyProfileGateOnCheckIn(user);
+
+      if (profileGate.locked) {
+        return res.status(403).json({
+          error: 'Attendance locked',
+          code: 'ATTENDANCE_LOCKED',
+          message:
+            'Your attendance has been locked because your profile is incomplete. Contact an admin to unlock.',
+          missingFields: profileGate.missingFields,
+        });
+      }
+    }
+
     const preferredOfficeName = branchToOfficeName(user);
 
     let pairedCheckIn = null;
@@ -179,13 +217,23 @@ exports.markAttendance = async (req, res) => {
     });
 
     await attendance.save();
-    res.json({
+
+    const response = {
       message: 'Attendance marked',
       isInOffice,
       office: matchedOfficeName,
       type: attendance.type,
       timestamp: attendance.timestamp,
-    });
+    };
+
+    if (req.body.type === 'check-in' && profileGate.profileIncomplete) {
+      response.profileIncomplete = true;
+      response.profileWarning =
+        'Your profile information is incomplete. Please complete your profile.';
+      response.missingFields = profileGate.missingFields;
+    }
+
+    res.json(response);
   } catch (err) {
     console.error('Mark attendance error:', err);
     res.status(500).json({ error: 'Internal server error' });

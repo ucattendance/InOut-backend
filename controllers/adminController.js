@@ -262,6 +262,31 @@ const adminController = {
       res.status(500).json({ error: 'Internal server error' });
     }
   },
+
+  unlockAttendance: async (req, res) => {
+    try {
+      const user = await User.findById(req.params.id).select('-password');
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      user.attendanceLocked = false;
+      user.attendanceLockedAt = null;
+      // Restart grace tracking from next incomplete check-in
+      user.profileIncompleteSince = null;
+      await user.save();
+
+      res.json({
+        message: 'User attendance unlocked',
+        userId: String(user._id),
+        attendanceLocked: user.attendanceLocked,
+        profileIncompleteSince: user.profileIncompleteSince,
+      });
+    } catch (err) {
+      console.error('Error unlocking attendance:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  },
 };
 
 module.exports = adminController;

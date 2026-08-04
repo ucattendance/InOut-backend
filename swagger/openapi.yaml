@@ -208,6 +208,11 @@ paths:
     post:
       tags: [Attendance]
       summary: Mark check-in / check-out
+      description: >
+        Check-in enforces profile completion. Incomplete profiles receive a warning
+        (`profileIncomplete: true`) but check-in is still allowed during a 3-day
+        internal grace period. After 3 days without completing the profile, check-in
+        is rejected with `code: ATTENDANCE_LOCKED` until an admin unlocks the user.
       requestBody:
         content:
           multipart/form-data:
@@ -217,9 +222,19 @@ paths:
                 image:
                   type: string
                   format: binary
+                type:
+                  type: string
+                  enum: [check-in, check-out]
+                location:
+                  type: string
+                  description: "lat,lon"
+                comment:
+                  type: string
       responses:
         '200':
-          description: Attendance recorded
+          description: Attendance recorded (may include profileIncomplete warning on check-in)
+        '403':
+          description: Attendance locked due to incomplete profile after grace period
 
   /attendance/me:
     get:
@@ -370,6 +385,24 @@ paths:
       responses:
         '200':
           description: Letters list
+
+  /api/admin/users/{id}/unlock-attendance:
+    post:
+      tags: [Admin]
+      summary: Unlock attendance for a locked user
+      description: Admin-only. Clears attendanceLocked and restarts the profile-incomplete grace period.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: User attendance unlocked
+        '403':
+          description: Forbidden (non-admin)
+        '404':
+          description: User not found
 
   /api/leaves/apply:
     post:
