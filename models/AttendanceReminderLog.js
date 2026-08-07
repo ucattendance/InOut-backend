@@ -18,7 +18,7 @@ const AttendanceReminderLogSchema = new mongoose.Schema(
     },
     reminderType: {
       type: String,
-      enum: ['checkin-10am', 'checkout-6pm', 'checkout-7pm'],
+      enum: ['checkin-10am', 'checkout-6pm', 'checkout-7pm', 'checkout-8pm'],
       required: true,
     },
     /** Calendar day in Asia/Kolkata, format YYYY-MM-DD */

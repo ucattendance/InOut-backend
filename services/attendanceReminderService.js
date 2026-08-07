@@ -14,7 +14,7 @@ const SENDER = 'InOut Portal <admin@urbancode.in>';
 const REMINDER_TYPES = {
   CHECKIN_10AM: 'checkin-10am',
   CHECKOUT_6PM: 'checkout-6pm',
-  CHECKOUT_7PM: 'checkout-7pm',
+  CHECKOUT_8PM: 'checkout-8pm',
 };
 
 const getIstDateKey = (date = new Date()) =>
@@ -288,8 +288,8 @@ const runCheckout6pmReminder = (opts) =>
     finalReminder: false,
   });
 
-const runCheckout7pmReminder = (opts) =>
-  runCheckoutReminder(REMINDER_TYPES.CHECKOUT_7PM, {
+const runCheckout8pmReminder = (opts) =>
+  runCheckoutReminder(REMINDER_TYPES.CHECKOUT_8PM, {
     ...opts,
     finalReminder: true,
   });
@@ -308,5 +308,5 @@ module.exports = {
   claimReminderSlot,
   runCheckInReminder,
   runCheckout6pmReminder,
-  runCheckout7pmReminder,
+  runCheckout8pmReminder,
 };

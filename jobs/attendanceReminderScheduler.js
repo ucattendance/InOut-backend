@@ -3,7 +3,7 @@ const {
   TIMEZONE,
   runCheckInReminder,
   runCheckout6pmReminder,
-  runCheckout7pmReminder,
+  runCheckout8pmReminder,
 } = require('../services/attendanceReminderService');
 
 let started = false;
@@ -61,17 +61,17 @@ const startAttendanceReminderScheduler = () => {
     { timezone: TIMEZONE }
   );
 
-  // 7:00 PM IST — Final Check-Out reminder
+  // 8:00 PM IST — Final Check-Out reminder (replaces former 7:00 PM)
   cron.schedule(
-    '0 19 * * *',
+    '0 20 * * *',
     () => {
-      safeRun('checkout-7pm', () => runCheckout7pmReminder());
+      safeRun('checkout-8pm', () => runCheckout8pmReminder());
     },
     { timezone: TIMEZONE }
   );
 
   started = true;
-  console.log('[AttendanceReminder] Scheduler started (Asia/Kolkata: 10:00, 18:00, 19:00)');
+  console.log('[AttendanceReminder] Scheduler started (Asia/Kolkata: 10:00, 18:00, 20:00)');
   return { started: true };
 };
 

@@ -86,15 +86,15 @@ function runUnit() {
     const html7 = buildCheckoutReminderHtml('Test User', { finalReminder: true });
     assert.ok(html7.includes('Final Reminder: Pending Check-Out'));
     assert.ok(html7.includes(URLS.checkOut));
-    pass('unit: 6PM / 7PM check-out HTML templates');
+    pass('unit: 6PM / 8PM check-out HTML templates');
   } catch (e) {
-    fail('unit: 6PM / 7PM check-out HTML templates', e);
+    fail('unit: 6PM / 8PM check-out HTML templates', e);
   }
 
   try {
     assert.strictEqual(REMINDER_TYPES.CHECKIN_10AM, 'checkin-10am');
     assert.strictEqual(REMINDER_TYPES.CHECKOUT_6PM, 'checkout-6pm');
-    assert.strictEqual(REMINDER_TYPES.CHECKOUT_7PM, 'checkout-7pm');
+    assert.strictEqual(REMINDER_TYPES.CHECKOUT_8PM, 'checkout-8pm');
     pass('unit: reminder type constants');
   } catch (e) {
     fail('unit: reminder type constants', e);
@@ -141,7 +141,7 @@ function runUnit() {
     assert.strictEqual(typeof cron.schedule, 'function');
     assert.ok(cron.validate('0 10 * * *'));
     assert.ok(cron.validate('0 18 * * *'));
-    assert.ok(cron.validate('0 19 * * *'));
+    assert.ok(cron.validate('0 20 * * *'));
     pass('unit: node-cron schedules valid');
   } catch (e) {
     fail('unit: node-cron schedules valid', e);
