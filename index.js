@@ -102,6 +102,14 @@ async function startServer() {
     await mongoose.connect(process.env.MONGO_URI);
     console.log('MongoDB connected');
 
+    // Attendance reminder emails (10:00 / 18:00 / 19:00 Asia/Kolkata)
+    try {
+      const { startAttendanceReminderScheduler } = require('./jobs/attendanceReminderScheduler');
+      startAttendanceReminderScheduler();
+    } catch (schedErr) {
+      console.error('Attendance reminder scheduler failed to start:', schedErr.message);
+    }
+
     const port = process.env.PORT || 5000;
     app.listen(port, () => console.log(`Server running on port ${port}`));
   } catch (err) {
