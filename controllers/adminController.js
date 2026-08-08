@@ -287,6 +287,30 @@ const adminController = {
       res.status(500).json({ error: 'Internal server error' });
     }
   },
+
+  /**
+   * Manually trigger previous-month attendance + payslip emails.
+   * Query: dryRun=true | force=true | userId=<id>
+   */
+  triggerMonthlyReports: async (req, res) => {
+    try {
+      const { runMonthlyReports } = require('../services/monthlyReportService');
+      const dryRun =
+        String(req.query.dryRun || req.body?.dryRun || '').toLowerCase() === 'true';
+      const force =
+        String(req.query.force || req.body?.force || '').toLowerCase() === 'true';
+      const userId = req.query.userId || req.body?.userId || null;
+
+      const report = await runMonthlyReports({ dryRun, force, userId });
+      res.json({
+        message: dryRun ? 'Monthly report dry-run completed' : 'Monthly report run completed',
+        ...report,
+      });
+    } catch (err) {
+      console.error('Error triggering monthly reports:', err);
+      res.status(500).json({ error: err.message || 'Internal server error' });
+    }
+  },
 };
 
 module.exports = adminController;

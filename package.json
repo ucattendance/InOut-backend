@@ -3,8 +3,11 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "node scripts/testProfileLock.js && node scripts/testAttendanceReminders.js",
+    "test": "node scripts/testProfileLock.js && node scripts/testAttendanceReminders.js && node scripts/testMonthlyReport.js",
     "test:reminders": "node scripts/testAttendanceReminders.js",
+    "test:monthly-report": "node scripts/testMonthlyReport.js",
+    "monthly-report:dry-run": "node scripts/testMonthlyReport.js --dry-run",
+    "monthly-report:send": "node scripts/testMonthlyReport.js --send",
     "start": "node index.js",
     "dev": "node index.js"
   },
