@@ -4,6 +4,8 @@ const {
   runCheckInReminder,
   runCheckout6pmReminder,
   runCheckout8pmReminder,
+  runItStatusCallReminder,
+  runConsultancyCallReminder,
 } = require('../services/attendanceReminderService');
 
 let started = false;
@@ -29,7 +31,7 @@ const safeRun = async (label, fn) => {
 };
 
 /**
- * Starts IST cron jobs for attendance reminder emails.
+ * Starts IST cron jobs for attendance + meeting-call reminder emails.
  * Idempotent: calling twice does not register duplicate schedules.
  */
 const startAttendanceReminderScheduler = () => {
@@ -52,6 +54,24 @@ const startAttendanceReminderScheduler = () => {
     { timezone: TIMEZONE }
   );
 
+  // 12:00 PM IST — IT Status Call reminder
+  cron.schedule(
+    '0 12 * * *',
+    () => {
+      safeRun('it-status-12pm', () => runItStatusCallReminder());
+    },
+    { timezone: TIMEZONE }
+  );
+
+  // 3:00 PM IST — Consultancy Call reminder
+  cron.schedule(
+    '0 15 * * *',
+    () => {
+      safeRun('consultancy-3pm', () => runConsultancyCallReminder());
+    },
+    { timezone: TIMEZONE }
+  );
+
   // 6:00 PM IST — Check-Out reminder
   cron.schedule(
     '0 18 * * *',
@@ -61,7 +81,7 @@ const startAttendanceReminderScheduler = () => {
     { timezone: TIMEZONE }
   );
 
-  // 8:00 PM IST — Final Check-Out reminder (replaces former 7:00 PM)
+  // 8:00 PM IST — Final Check-Out reminder
   cron.schedule(
     '0 20 * * *',
     () => {
@@ -71,7 +91,9 @@ const startAttendanceReminderScheduler = () => {
   );
 
   started = true;
-  console.log('[AttendanceReminder] Scheduler started (Asia/Kolkata: 10:00, 18:00, 20:00)');
+  console.log(
+    '[AttendanceReminder] Scheduler started (Asia/Kolkata: 10:00, 12:00, 15:00, 18:00, 20:00)'
+  );
   return { started: true };
 };
 

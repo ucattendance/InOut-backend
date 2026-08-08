@@ -157,9 +157,55 @@ const buildCheckoutReminderHtml = (employeeName, { finalReminder = false } = {})
   );
 };
 
+const buildMeetingCallReminderHtml = (
+  employeeName,
+  { title, whenLabel, callName, detail }
+) =>
+  wrapEmail(
+    title,
+    `
+      <h1 style="margin:0 0 16px 0;font-size:22px;line-height:1.3;color:#0b2d67;">
+        ${title}
+      </h1>
+      <p style="margin:0 0 14px 0;font-size:15px;line-height:1.6;color:#374151;">
+        Dear ${employeeName || 'Team Member'},
+      </p>
+      <p style="margin:0 0 14px 0;font-size:15px;line-height:1.6;color:#374151;">
+        This is a reminder that the <strong>${callName}</strong> is scheduled for
+        <strong>${whenLabel}</strong> today.
+      </p>
+      <p style="margin:0 0 18px 0;font-size:15px;line-height:1.6;color:#374151;">
+        ${detail}
+      </p>
+      <p style="margin:22px 0 0 0;font-size:15px;line-height:1.6;color:#374151;">
+        Regards,<br/>
+        <strong>HR Team</strong><br/>
+        Urbancode
+      </p>
+    `
+  );
+
+const buildItStatusCallReminderHtml = (employeeName) =>
+  buildMeetingCallReminderHtml(employeeName, {
+    title: 'Reminder: IT Status Call at 12:00 PM',
+    whenLabel: '12:00 PM IST',
+    callName: 'IT Status Call',
+    detail: 'Please join the IT Status Call on time and be ready with your updates.',
+  });
+
+const buildConsultancyCallReminderHtml = (employeeName) =>
+  buildMeetingCallReminderHtml(employeeName, {
+    title: 'Reminder: Consultancy Call at 3:00 PM',
+    whenLabel: '3:00 PM IST',
+    callName: 'Consultancy Call',
+    detail: 'Please join the Consultancy Call on time.',
+  });
+
 module.exports = {
   FRONTEND_BASE,
   URLS,
   buildCheckInReminderHtml,
   buildCheckoutReminderHtml,
+  buildItStatusCallReminderHtml,
+  buildConsultancyCallReminderHtml,
 };

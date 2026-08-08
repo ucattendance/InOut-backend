@@ -6,6 +6,8 @@ const {
   URLS,
   buildCheckInReminderHtml,
   buildCheckoutReminderHtml,
+  buildItStatusCallReminderHtml,
+  buildConsultancyCallReminderHtml,
 } = require('../utils/attendanceReminderEmails');
 
 const TIMEZONE = 'Asia/Kolkata';
@@ -23,6 +25,8 @@ const REMINDER_TYPES = {
   CHECKIN_10AM: 'checkin-10am',
   CHECKOUT_6PM: 'checkout-6pm',
   CHECKOUT_8PM: 'checkout-8pm',
+  IT_STATUS_12PM: 'it-status-12pm',
+  CONSULTANCY_3PM: 'consultancy-3pm',
 };
 
 const getIstDateKey = (date = new Date()) =>
@@ -302,6 +306,53 @@ const runCheckout8pmReminder = (opts) =>
     finalReminder: true,
   });
 
+/**
+ * Broadcast meeting-call reminders to all eligible employees (not attendance-gated).
+ */
+const runMeetingCallReminder = async (
+  reminderType,
+  { subject, buildHtml, now = new Date(), dryRun = false } = {}
+) => {
+  const employees = await getEligibleEmployees();
+  const { dateKey } = getTodayBoundsUtc(now);
+
+  const results = [];
+  for (const user of employees) {
+    const result = await sendOneReminder({
+      user,
+      reminderType,
+      dateKey,
+      subject,
+      html: buildHtml(user.name),
+      dryRun,
+    });
+    results.push(result);
+  }
+
+  return {
+    reminderType,
+    dateKey,
+    candidateCount: employees.length,
+    results,
+  };
+};
+
+/** 12:00 PM IST — IT Status Call reminder */
+const runItStatusCallReminder = (opts) =>
+  runMeetingCallReminder(REMINDER_TYPES.IT_STATUS_12PM, {
+    ...opts,
+    subject: 'Reminder: IT Status Call at 12:00 PM',
+    buildHtml: buildItStatusCallReminderHtml,
+  });
+
+/** 3:00 PM IST — Consultancy Call reminder */
+const runConsultancyCallReminder = (opts) =>
+  runMeetingCallReminder(REMINDER_TYPES.CONSULTANCY_3PM, {
+    ...opts,
+    subject: 'Reminder: Consultancy Call at 3:00 PM',
+    buildHtml: buildConsultancyCallReminderHtml,
+  });
+
 module.exports = {
   TIMEZONE,
   getSenderFromAddress,
@@ -317,4 +368,6 @@ module.exports = {
   runCheckInReminder,
   runCheckout6pmReminder,
   runCheckout8pmReminder,
+  runItStatusCallReminder,
+  runConsultancyCallReminder,
 };

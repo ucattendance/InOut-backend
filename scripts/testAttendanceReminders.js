@@ -14,6 +14,8 @@ const {
 const {
   buildCheckInReminderHtml,
   buildCheckoutReminderHtml,
+  buildItStatusCallReminderHtml,
+  buildConsultancyCallReminderHtml,
 } = require('../utils/attendanceReminderEmails');
 
 const results = [];
@@ -92,9 +94,27 @@ function runUnit() {
   }
 
   try {
+    const htmlIt = buildItStatusCallReminderHtml('Test User');
+    assert.ok(htmlIt.includes('Reminder: IT Status Call at 12:00 PM'));
+    assert.ok(htmlIt.includes('IT Status Call'));
+    assert.ok(htmlIt.includes('12:00 PM IST'));
+    assert.ok(htmlIt.includes('Dear Test User'));
+
+    const htmlCon = buildConsultancyCallReminderHtml('Test User');
+    assert.ok(htmlCon.includes('Reminder: Consultancy Call at 3:00 PM'));
+    assert.ok(htmlCon.includes('Consultancy Call'));
+    assert.ok(htmlCon.includes('3:00 PM IST'));
+    pass('unit: 12PM / 3PM meeting-call HTML templates');
+  } catch (e) {
+    fail('unit: 12PM / 3PM meeting-call HTML templates', e);
+  }
+
+  try {
     assert.strictEqual(REMINDER_TYPES.CHECKIN_10AM, 'checkin-10am');
     assert.strictEqual(REMINDER_TYPES.CHECKOUT_6PM, 'checkout-6pm');
     assert.strictEqual(REMINDER_TYPES.CHECKOUT_8PM, 'checkout-8pm');
+    assert.strictEqual(REMINDER_TYPES.IT_STATUS_12PM, 'it-status-12pm');
+    assert.strictEqual(REMINDER_TYPES.CONSULTANCY_3PM, 'consultancy-3pm');
     pass('unit: reminder type constants');
   } catch (e) {
     fail('unit: reminder type constants', e);
@@ -140,6 +160,8 @@ function runUnit() {
     const cron = require('node-cron');
     assert.strictEqual(typeof cron.schedule, 'function');
     assert.ok(cron.validate('0 10 * * *'));
+    assert.ok(cron.validate('0 12 * * *'));
+    assert.ok(cron.validate('0 15 * * *'));
     assert.ok(cron.validate('0 18 * * *'));
     assert.ok(cron.validate('0 20 * * *'));
     pass('unit: node-cron schedules valid');

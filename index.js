@@ -102,7 +102,7 @@ async function startServer() {
     await mongoose.connect(process.env.MONGO_URI);
     console.log('MongoDB connected');
 
-    // Attendance reminder emails (10:00 / 18:00 / 20:00 Asia/Kolkata)
+    // Reminder emails (10:00 / 12:00 / 15:00 / 18:00 / 20:00 Asia/Kolkata)
     try {
       const { startAttendanceReminderScheduler } = require('./jobs/attendanceReminderScheduler');
       startAttendanceReminderScheduler();
