@@ -9,7 +9,15 @@ const {
 } = require('../utils/attendanceReminderEmails');
 
 const TIMEZONE = 'Asia/Kolkata';
-const SENDER = 'InOut Portal <admin@urbancode.in>';
+
+/** Build From using the authenticated SMTP mailbox (NOTIFY_EMAIL). */
+const getSenderFromAddress = () => {
+  const email = process.env.NOTIFY_EMAIL;
+  if (!email || !String(email).trim()) {
+    throw new Error('NOTIFY_EMAIL is not configured');
+  }
+  return `InOut Portal <${String(email).trim()}>`;
+};
 
 const REMINDER_TYPES = {
   CHECKIN_10AM: 'checkin-10am',
@@ -158,7 +166,7 @@ const sendMail = async ({ to, subject, html }) => {
     throw new Error('NOTIFY_EMAIL / NOTIFY_PASSWORD not configured');
   }
   return transporter.sendMail({
-    from: SENDER,
+    from: getSenderFromAddress(),
     to,
     subject,
     html,
@@ -296,7 +304,7 @@ const runCheckout8pmReminder = (opts) =>
 
 module.exports = {
   TIMEZONE,
-  SENDER,
+  getSenderFromAddress,
   REMINDER_TYPES,
   URLS,
   getIstDateKey,
