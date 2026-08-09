@@ -38,82 +38,82 @@ const authController = {
     }
   },
 
- register: async (req, res) => {
-  try {
-    const {
-      name,
-      email,
-      password,
-      phone,
-      position,
-      company,
-      salary,
-      department,
-      qualification,
-  dateOfJoining,
-  dateOfBirth,
-      rolesAndResponsibility,
-      skills,
-      profilePic,
-      bloodGroup,
-      address,
-      bankDetails,
-      schedule
-    } = req.body;
-
-    // Validate required fields
-    if (!name || !email || !password || !phone || !position || !company) {
-      return res.status(400).json({ error: 'All required fields must be filled' });
-    }
-
-    // Check duplicates
-    const existingUser = await User.findOne({ email });
-    const existingPending = await PendingUser.findOne({ email });
-
-    if (existingUser || existingPending) {
-      return res.status(400).json({ error: 'Email already in use or pending approval' });
-    }
-
-    // Hash the password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create pending user with all schema fields
-    const pending = new PendingUser({
-      name,
-      email,
-      password: hashedPassword,
-      phone,
-      position,
-      company,
-      salary: salary || 0,
-      department,
-      qualification,
+  register: async (req, res) => {
+    try {
+      const {
+        name,
+        email,
+        password,
+        phone,
+        position,
+        company,
+        salary,
+        department,
+        qualification,
         dateOfJoining,
         dateOfBirth,
-      rolesAndResponsibility: rolesAndResponsibility || [],
-      skills: skills || [],
-      profilePic: profilePic || '',
-      bloodGroup,
-      address,
+        rolesAndResponsibility,
+        skills,
+        profilePic,
+        bloodGroup,
+        address,
+        bankDetails,
+        schedule
+      } = req.body;
 
-      bankDetails,
-      schedule
-    });
+      // Validate required fields
+      if (!name || !email || !password || !phone || !position || !company) {
+        return res.status(400).json({ error: 'All required fields must be filled' });
+      }
 
-    await pending.save();
+      // Check duplicates
+      const existingUser = await User.findOne({ email });
+      const existingPending = await PendingUser.findOne({ email });
 
-    // Email Notification
-    const mailOptions = {
-      from: process.env.NOTIFY_EMAIL,
-      to: [
-        process.env.NOTIFY_EMAIL,
-        'admin@urbancode.in',
-        'wepenit2020@gmail.com',
-        'jayaprathap.rajan27@gmail.com',
-        'savitha.saviy@gmail.com'
-      ],
-      subject: '🚀 New User Registration Alert for INOUT!',
-      html: `
+      if (existingUser || existingPending) {
+        return res.status(400).json({ error: 'Email already in use or pending approval' });
+      }
+
+      // Hash the password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Create pending user with all schema fields
+      const pending = new PendingUser({
+        name,
+        email,
+        password: hashedPassword,
+        phone,
+        position,
+        company,
+        salary: salary || 0,
+        department,
+        qualification,
+        dateOfJoining,
+        dateOfBirth,
+        rolesAndResponsibility: rolesAndResponsibility || [],
+        skills: skills || [],
+        profilePic: profilePic || '',
+        bloodGroup,
+        address,
+
+        bankDetails,
+        schedule
+      });
+
+      await pending.save();
+
+      // Email Notification
+      const mailOptions = {
+        from: process.env.NOTIFY_EMAIL,
+        to: [
+          process.env.NOTIFY_EMAIL,
+          'admin@urbancode.in',
+          'wepenit2020@gmail.com',
+          'jayaprathap.rajan27@gmail.com',
+
+        ],
+        subject: '🚀 New User Registration Alert for INOUT!',
+        html: `
         <div style="font-family: Arial, sans-serif; border: 1px solid #e0e0e0; border-radius: 10px; padding: 20px; background: #f9f9ff;">
           <h2 style="color: #6366f1;">👤 New Registration Received for InOut</h2>
           <p><strong>👨‍💼 Name:</strong> ${pending.name}</p><br/>
@@ -129,17 +129,17 @@ const authController = {
           <p style="font-size: 13px; color: #999;">📅 ${new Date().toLocaleString()}</p>
         </div>
       `
-    };
+      };
 
-    transporter.sendMail(mailOptions);
+      transporter.sendMail(mailOptions);
 
-    res.status(201).json({ message: 'Registration submitted and pending admin approval' });
+      res.status(201).json({ message: 'Registration submitted and pending admin approval' });
 
-  } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-},
+    } catch (error) {
+      console.error('Registration error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  },
 
 };
 

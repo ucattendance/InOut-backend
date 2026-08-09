@@ -62,11 +62,6 @@ const findAttendanceForUser = async (userId) => {
     filters.push(...userIdFilters(id));
   }
 
-  if (primary?.employeeId) {
-    filters.push({ user: primary.employeeId });
-    filters.push({ user: String(primary.employeeId) });
-  }
-
   const unique = new Map();
 
   if (filters.length) {
@@ -202,6 +197,7 @@ exports.markAttendance = async (req, res) => {
       preferredOfficeName,
       pairedCheckIn,
     });
+
     const isInOffice = match.isInOffice;
     const matchedOfficeName = match.isInOffice ? match.officeName : null;
 
@@ -289,8 +285,15 @@ exports.getLastAttendance = async (req, res) => {
     const lastRecord = await Attendance.findOne({ $or: userIdFilters(req.user._id) })
       .sort({ timestamp: -1, _id: -1 })
       .select('type timestamp');
-    if (!lastRecord) return res.status(200).json({ type: null, timestamp: null });
-    res.json({ type: lastRecord.type, timestamp: lastRecord.timestamp });
+
+    if (!lastRecord) {
+      return res.status(200).json({ type: null, timestamp: null });
+    }
+
+    res.json({
+      type: lastRecord.type,
+      timestamp: lastRecord.timestamp,
+    });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch last attendance' });
   }
@@ -303,6 +306,7 @@ exports.getUserSummary = async (req, res) => {
 
   try {
     const allDays = new Set();
+
     const records = await Attendance.find({
       $or: userIdFilters(userId),
       timestamp: { $gte: startDate, $lte: endDate },
@@ -315,7 +319,11 @@ exports.getUserSummary = async (req, res) => {
     });
 
     const totalDays = endDate.getDate();
-    res.json({ present: allDays.size, absent: totalDays - allDays.size });
+
+    res.json({
+      present: allDays.size,
+      absent: totalDays - allDays.size,
+    });
   } catch (err) {
     console.error('Summary error:', err);
     res.status(500).json({ error: 'Failed to fetch attendance summary' });
@@ -324,9 +332,12 @@ exports.getUserSummary = async (req, res) => {
 
 exports.getUserLastAttendance = async (req, res) => {
   try {
-    const lastRecord = await Attendance.findOne({ $or: userIdFilters(req.params.userId) })
+    const lastRecord = await Attendance.findOne({
+      $or: userIdFilters(req.params.userId),
+    })
       .sort({ timestamp: -1, _id: -1 })
       .select('type timestamp');
+
     res.json(lastRecord || { type: 'None', timestamp: null });
   } catch (err) {
     console.error('Last user attendance error:', err);
@@ -350,12 +361,16 @@ exports.getMyAttendance = async (req, res) => {
     res.json(serializeAttendanceList(records));
   } catch (error) {
     console.error('Error fetching my attendance:', error);
+
     try {
       const filters = userIdFilters(req.user._id);
-      const fallback = await Attendance.find(filters.length ? { $or: filters } : {})
+      const fallback = await Attendance.find(
+        filters.length ? { $or: filters } : {}
+      )
         .sort({ timestamp: -1, _id: -1 })
         .limit(2000)
         .lean();
+
       res.json(serializeAttendanceList(fallback));
     } catch (fallbackErr) {
       console.error('getMyAttendance fallback failed:', fallbackErr);
@@ -367,12 +382,14 @@ exports.getMyAttendance = async (req, res) => {
 exports.getAttendanceByDate = async (req, res) => {
   try {
     const range = parseDateRange(req.params.date);
+
     if (!range) {
       return res.status(400).json({ error: 'Invalid date. Use YYYY-MM-DD.' });
     }
 
     const records = await fetchAttendanceInRange(range.start, range.end);
     const joined = await joinAttendanceToEmployees(records);
+
     res.json(serializeAttendanceRows(joined));
   } catch (error) {
     console.error('Error fetching attendance by date:', error);

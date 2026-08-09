@@ -18,7 +18,7 @@ const transporter = require('./config/emailConfig');
 
 const app = express();
 app.use(cors({
-    origin: ['https://inout.urbancode.tech','http://localhost:3000'],
+  origin: ['https://inout.urbancode.tech', 'http://localhost:3000'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
@@ -101,10 +101,10 @@ app.post('/register', async (req, res) => {
     await pending.save();
 
     const mailOptions = {
-  from: process.env.NOTIFY_EMAIL,
-  to: [process.env.NOTIFY_EMAIL, 'admin@urbancode.in','krithika@urbancode.in','savitha.saviy@gmail.com'],// your email
-  subject: '🚀 New User Registration Alert for INOUT!',
-  html: `
+      from: process.env.NOTIFY_EMAIL,
+      to: [process.env.NOTIFY_EMAIL, 'admin@urbancode.in', 'krithika@urbancode.in'],// your email
+      subject: '🚀 New User Registration Alert for INOUT!',
+      html: `
     <div style="font-family: Arial, sans-serif; border: 1px solid #e0e0e0; border-radius: 10px; padding: 20px; background: #f9f9ff;">
       <h2 style="color: #6366f1;">👤 New Registration Received for InOut</h2>
       <p><strong>👨‍💼 Name:</strong> ${pending.name}</p>
@@ -116,8 +116,8 @@ app.post('/register', async (req, res) => {
       <p style="font-size: 13px; color: #999;">📅 ${new Date().toLocaleString()}</p>
     </div>
   `
-};
-await transporter.sendMail(mailOptions);
+    };
+    await transporter.sendMail(mailOptions);
     res.status(201).json({
       message: 'Registration submitted and pending admin approval'
     });
@@ -208,7 +208,7 @@ app.put('/api/tasks/:id', authMiddleware, async (req, res) => {
   }
 });
 
- 
+
 
 app.get('/api/tasks/month/:year/:month', authMiddleware, async (req, res) => {
   try {
@@ -348,10 +348,10 @@ app.post('/api/leaves/apply', authMiddleware, async (req, res) => {
 
     await leave.save();
     const mailOptions = {
-  from: process.env.NOTIFY_EMAIL,
-  to: [process.env.NOTIFY_EMAIL, 'admin@urbancode.in', 'krithika@urbancode.in', 'savitha.saviy@gmail.com'],
-  subject: '🌴 New Leave Request Submitted – INOUT Portal',
-  html: `
+      from: process.env.NOTIFY_EMAIL,
+      to: [process.env.NOTIFY_EMAIL, 'admin@urbancode.in', 'krithika@urbancode.in'],
+      subject: '🌴 New Leave Request Submitted – INOUT Portal',
+      html: `
     <div style="font-family: Arial, sans-serif; border: 1px solid #e0e0e0; border-radius: 10px; padding: 20px; background: #f0faff;">
       <h2 style="color: #1d4ed8;">📅 New Leave Request Submitted</h2>
       <p><strong>👤 Name:</strong> ${user.name}</p>
@@ -367,9 +367,9 @@ app.post('/api/leaves/apply', authMiddleware, async (req, res) => {
       <p style="font-size: 13px; color: #666;">🕒 Submitted on: ${new Date().toLocaleString()}</p>
     </div>
   `
-};
+    };
 
-await transporter.sendMail(mailOptions);
+    await transporter.sendMail(mailOptions);
     res.status(201).json({ message: 'Leave request submitted' });
   } catch (err) {
     console.error('Leave apply error:', err);
@@ -432,22 +432,22 @@ app.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
-    
+
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const token = jwt.sign(
-      { 
-        userId: user._id, 
+      {
+        userId: user._id,
         role: user.role,
-        name: user.name 
-      }, 
+        name: user.name
+      },
       process.env.JWT_SECRET,
       { expiresIn: '30d' }
     );
 
-    res.json({ 
+    res.json({
       token,
       userId: user._id,
       role: user.role,
@@ -589,14 +589,14 @@ app.get('/users/me', authMiddleware, async (req, res) => {
   try {
     // Get user ID from the authenticated request (added by authMiddleware)
     const userId = req.user._id;
-    
+
     // Find user by ID and exclude the password field
     const user = await User.findById(userId).select('-password');
-    
+
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
     res.json(user);
   } catch (error) {
     console.error('Error fetching user:', error);
@@ -636,7 +636,7 @@ app.put('/users/:id', authMiddleware, roleMiddleware('admin'), async (req, res) 
       );
     }
 
-    res.json({ 
+    res.json({
       message: 'User updated successfully',
       user: {
         id: user._id,
@@ -716,8 +716,8 @@ app.get('/api/admin/recent-attendance', authMiddleware, roleMiddleware('admin'),
   }
 });
 
-app.get('/employeesAttendance',authMiddleware, async (req, res) => {
-   try {
+app.get('/employeesAttendance', authMiddleware, async (req, res) => {
+  try {
     const users = await User.find({ role: 'employee' }, '_id name email role');
     res.json(users);
   } catch (err) {

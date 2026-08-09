@@ -4,7 +4,7 @@
 const LeaveRequest = require('../models/LeaveRequest');
 const transporter = require('../config/emailConfig');
 const User = require('../models/User');
-    const axios = require('axios');
+const axios = require('axios');
 
 
 const leaveController = {
@@ -15,7 +15,7 @@ const leaveController = {
         return res.status(400).json({ error: 'Missing fields' });
       }
       const user = await User.findById(req.user._id);
-    if (!user) return res.status(404).json({ error: 'User not found' });
+      if (!user) return res.status(404).json({ error: 'User not found' });
       const leave = new LeaveRequest({
         user: user._id,
         fromDate,
@@ -27,14 +27,14 @@ const leaveController = {
       await leave.save();
 
       const mailOptions = {
-        from:  `InOut Portal -<${process.env.NOTIFY_EMAIL}>`,
+        from: `InOut Portal -<${process.env.NOTIFY_EMAIL}>`,
         to: [
           process.env.NOTIFY_EMAIL,
           'admin@urbancode.in',
           'krithika@urbancode.in',
           'wepenit2020@gmail.com',
           'jayaprathap.rajan27@gmail.com',
-          'savitha.saviy@gmail.com'
+
         ],
         subject: 'New Leave Request Submitted 🌴– INOUT Portal',
         html: `
@@ -96,74 +96,74 @@ const leaveController = {
       transporter.sendMail(mailOptions);
 
 
-// List of admin WhatsApp numbers (with country code, no "+")
-const adminNumbers = [
-    '919003177131', //Sivagaminathan
-    '919650308989',  // Krithika
-    '919080258870',  // Jayaprathap
-    '918939514410'   // Savitha
-];
+      // List of admin WhatsApp numbers (with country code, no "+")
+      const adminNumbers = [
+        '919003177131', //Sivagaminathan
+        '919650308989',  // Krithika
+        '919080258870',  // Jayaprathap
 
-// Dynamic WhatsApp message template
-// Dynamic WhatsApp message template
-function createWhatsAppTemplatePayload(number, user, fromDate, toDate, leaveType, reason) {
-    const days =
-        Math.ceil(
+      ];
+
+      // Dynamic WhatsApp message template
+      // Dynamic WhatsApp message template
+      function createWhatsAppTemplatePayload(number, user, fromDate, toDate, leaveType, reason) {
+        const days =
+          Math.ceil(
             (new Date(toDate) - new Date(fromDate)) /
             (1000 * 60 * 60 * 24)
-        ) + 1;
+          ) + 1;
 
-    return {
-        to: number, // No '+' prefix, AskEva expects digits only
-        type: "template",
-        template: {
+        return {
+          to: number, // No '+' prefix, AskEva expects digits only
+          type: "template",
+          template: {
             language: {
-                policy: "deterministic",
-                code: "en"
+              policy: "deterministic",
+              code: "en"
             },
             name: "leave_request_notification", // replace with your approved template name
             components: [
-                {
-                    type: "body",
-                    parameters: [
-                        { type: "text", text: user.company },
-                        { type: "text", text: user.name },
-                        { type: "text", text: user.position },
-                        { type: "text", text: `${new Date(fromDate).toLocaleDateString()} → ${new Date(toDate).toLocaleDateString()}` },
-                        { type: "text", text: `${days} days` },
-                        { type: "text", text: leaveType || 'N/A' },
-                        { type: "text", text: reason || 'No reason provided' },
-                        { type: "text", text: `https://inout.urbancode.tech/` },
-                        { type: "text", text: new Date().toLocaleString() }
-                    ]
-                }
+              {
+                type: "body",
+                parameters: [
+                  { type: "text", text: user.company },
+                  { type: "text", text: user.name },
+                  { type: "text", text: user.position },
+                  { type: "text", text: `${new Date(fromDate).toLocaleDateString()} → ${new Date(toDate).toLocaleDateString()}` },
+                  { type: "text", text: `${days} days` },
+                  { type: "text", text: leaveType || 'N/A' },
+                  { type: "text", text: reason || 'No reason provided' },
+                  { type: "text", text: `https://inout.urbancode.tech/` },
+                  { type: "text", text: new Date().toLocaleString() }
+                ]
+              }
             ]
-        }
-    };
-}
-// Send to all admins
-async function notifyAdminsOnWhatsApp(user, fromDate, toDate, leaveType, reason) {
-    for (const number of adminNumbers) {
-        try {
+          }
+        };
+      }
+      // Send to all admins
+      async function notifyAdminsOnWhatsApp(user, fromDate, toDate, leaveType, reason) {
+        for (const number of adminNumbers) {
+          try {
             const payload = createWhatsAppTemplatePayload(number, user, fromDate, toDate, leaveType, reason);
 
             const res = await axios.post(
-                `https://backend.askeva.io/v1/message/send-message?token=${process.env.ASKEVA_API_KEY}`,
-                payload,
-                {
-                    headers: { "Content-Type": "application/json" }
-                }
+              `https://backend.askeva.io/v1/message/send-message?token=${process.env.ASKEVA_API_KEY}`,
+              payload,
+              {
+                headers: { "Content-Type": "application/json" }
+              }
             );
 
             console.log(`✅ Sent to ${number}:`, res.data);
-        } catch (error) {
+          } catch (error) {
             console.error(`❌ Failed for ${number}:`, error.response?.data || error.message);
+          }
         }
-    }
-}
+      }
 
 
-notifyAdminsOnWhatsApp();
+      notifyAdminsOnWhatsApp();
       res.status(201).json({ message: 'Leave request submitted' });
     } catch (err) {
       console.error('Leave apply error:', err);
@@ -197,16 +197,16 @@ notifyAdminsOnWhatsApp();
       if (!updated) {
         return res.status(404).json({ error: 'Leave request not found' });
       }
-        // Check if user has email
-    if (!updated.user?.email) {
-      return res.status(400).json({ error: 'No email found for this user' });
-    }
-   
+      // Check if user has email
+      if (!updated.user?.email) {
+        return res.status(400).json({ error: 'No email found for this user' });
+      }
+
       const mailOptions = {
-              from:  `InOut Portal - <${process.env.NOTIFY_EMAIL}>`,
-              to: updated.user.email,
-              subject:  `Your Leave Request Has Been ${status}`,
-              html: `
+        from: `InOut Portal - <${process.env.NOTIFY_EMAIL}>`,
+        to: updated.user.email,
+        subject: `Your Leave Request Has Been ${status}`,
+        html: `
                 <!DOCTYPE html>
 <html>
 <head>
@@ -310,9 +310,9 @@ notifyAdminsOnWhatsApp();
 </body>
 </html>
       `
-            };
-      
-            await transporter.sendMail(mailOptions);
+      };
+
+      await transporter.sendMail(mailOptions);
 
       res.json({ message: `Leave ${status.toLowerCase()}`, request: updated });
     } catch (err) {
