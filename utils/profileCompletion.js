@@ -7,11 +7,7 @@ const REQUIRED_PROFILE_CHECKS = [
   { key: 'bankDetails.bankingName', get: (u) => u.bankDetails?.bankingName },
   { key: 'bankDetails.bankAccountNumber', get: (u) => u.bankDetails?.bankAccountNumber },
   { key: 'bankDetails.ifscCode', get: (u) => u.bankDetails?.ifscCode },
-  { key: 'dateOfJoining', get: (u) => u.dateOfJoining },
   { key: 'skills', get: (u) => u.skills },
-  { key: 'rolesAndResponsibility', get: (u) => u.rolesAndResponsibility },
-  { key: 'company', get: (u) => u.company },
-  { key: 'position', get: (u) => u.position },
 ];
 
 const isFilled = (value) => {
