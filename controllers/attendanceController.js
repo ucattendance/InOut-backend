@@ -130,11 +130,13 @@ const serializeAttendanceList = (records) => {
 
 exports.markAttendance = async (req, res) => {
   try {
+    const attendanceType = String(req.body.type || '').trim();
+
     if (!req.body.location || !req.body.location.includes(',')) {
       return res.status(400).json({ error: 'Invalid location format' });
     }
 
-    if (!['check-in', 'check-out'].includes(req.body.type)) {
+    if (!['check-in', 'check-out'].includes(attendanceType)) {
       return res.status(400).json({ error: 'Invalid attendance type' });
     }
 
@@ -158,7 +160,7 @@ exports.markAttendance = async (req, res) => {
     };
 
     // Profile gate + 3-day lock apply to check-in only (backend is source of truth)
-    if (req.body.type === 'check-in') {
+    if (attendanceType === 'check-in') {
       if (user.attendanceLocked) {
         return res.status(403).json({
           error: 'Attendance locked',
@@ -184,7 +186,7 @@ exports.markAttendance = async (req, res) => {
     const preferredOfficeName = branchToOfficeName(user);
 
     let pairedCheckIn = null;
-    if (req.body.type === 'check-out') {
+    if (attendanceType === 'check-out') {
       try {
         const dateKey = new Intl.DateTimeFormat('en-CA', {
           timeZone: 'Asia/Kolkata',
@@ -213,7 +215,7 @@ exports.markAttendance = async (req, res) => {
 
     const attendance = new Attendance({
       user: req.user._id,
-      type: req.body.type,
+      type: attendanceType,
       location: req.body.location,
       comment: req.body.comment || '',
       image: '',
@@ -223,6 +225,12 @@ exports.markAttendance = async (req, res) => {
     });
 
     await attendance.save();
+
+    try {
+      require('./adminController').invalidateAttendanceCaches();
+    } catch (cacheErr) {
+      console.error('Attendance cache clear failed:', cacheErr.message);
+    }
 
     if (req.file?.buffer) {
       saveAttendanceImageInBackground(attendance._id, req.file.buffer);
@@ -236,7 +244,7 @@ exports.markAttendance = async (req, res) => {
       timestamp: attendance.timestamp,
     };
 
-    if (req.body.type === 'check-in' && profileGate.profileIncomplete) {
+    if (attendanceType === 'check-in' && profileGate.profileIncomplete) {
       response.profileIncomplete = true;
       response.profileWarning =
         'Your profile information is incomplete. Please complete your profile.';

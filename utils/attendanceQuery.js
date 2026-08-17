@@ -114,21 +114,21 @@ const resolveEmployee = (userRef, maps) => {
 
 const formatAttendanceRow = (record, user) => ({
   _id: record._id,
-  employeeName: user.name || 'Unknown',
-  name: user.name || 'Unknown',
-  userId: user._id,
-  employeeId: user.employeeId || '',
-  role: user.role,
-  position: user.position || '',
-  department: user.department || '',
-  company: user.company || '',
-  dateOfRelieving: user.dateOfRelieving || null,
+  employeeName: user?.name || 'Unknown',
+  name: user?.name || 'Unknown',
+  userId: user?._id || record.user,
+  employeeId: user?.employeeId || '',
+  role: user?.role,
+  position: user?.position || '',
+  department: user?.department || '',
+  company: user?.company || '',
+  dateOfRelieving: user?.dateOfRelieving || null,
   userBranch:
-    user.branch ||
-    user.bankDetails?.officeBranch ||
-    user.address ||
+    user?.branch ||
+    user?.bankDetails?.officeBranch ||
+    user?.address ||
     '',
-  type: record.type,
+  type: String(record.type || '').trim(),
   timestamp: record.timestamp,
   location: record.location,
   isInOffice: record.isInOffice,
@@ -140,6 +140,7 @@ const formatAttendanceRow = (record, user) => ({
 /**
  * Join attendance records to employees in Node
  * (handles all legacy user field formats).
+ * Unmatched rows are kept so check-out still appears on the dashboard.
  */
 const joinAttendanceToEmployees = async (records) => {
   const maps = await loadEmployeeMaps();
@@ -147,9 +148,6 @@ const joinAttendanceToEmployees = async (records) => {
 
   for (const record of records || []) {
     const user = resolveEmployee(record.user, maps);
-
-    if (!user) continue;
-
     rows.push(formatAttendanceRow(record, user));
   }
 
@@ -217,24 +215,8 @@ const parseDateRange = (dateStr) => {
   }
 
   return {
-    start: new Date(
-      year,
-      month - 1,
-      day,
-      0,
-      0,
-      0,
-      0
-    ),
-    end: new Date(
-      year,
-      month - 1,
-      day,
-      23,
-      59,
-      59,
-      999
-    ),
+    start: new Date(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00+05:30`),
+    end: new Date(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T23:59:59.999+05:30`),
   };
 };
 

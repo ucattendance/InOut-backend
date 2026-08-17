@@ -21,6 +21,13 @@ let cachedRecentAttendance = null;
 let cacheRecentAttendanceTime = null;
 const ATTENDANCE_CACHE_TTL = 60 * 1000;
 
+const invalidateAttendanceCaches = () => {
+  cachedAttendance = null;
+  cacheTimestamp = null;
+  cachedRecentAttendance = null;
+  cacheRecentAttendanceTime = null;
+};
+
 const fetchAttendanceRecords = async ({ days, date } = {}) => {
   if (date) {
     const range = parseDateRange(date);
@@ -314,3 +321,4 @@ const adminController = {
 };
 
 module.exports = adminController;
+module.exports.invalidateAttendanceCaches = invalidateAttendanceCaches;
