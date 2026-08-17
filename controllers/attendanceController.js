@@ -184,13 +184,22 @@ exports.markAttendance = async (req, res) => {
 
     let pairedCheckIn = null;
     if (req.body.type === 'check-out') {
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-      pairedCheckIn = await Attendance.findOne({
-        $or: userIdFilters(req.user._id),
-        type: 'check-in',
-        timestamp: { $gte: todayStart },
-      }).sort({ timestamp: -1 });
+      try {
+        const dateKey = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Asia/Kolkata',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).format(new Date());
+        const todayStart = new Date(`${dateKey}T00:00:00+05:30`);
+        pairedCheckIn = await Attendance.findOne({
+          user: req.user._id,
+          type: 'check-in',
+          timestamp: { $gte: todayStart },
+        }).sort({ timestamp: -1 });
+      } catch (pairErr) {
+        console.error('Checkout pairing lookup failed:', pairErr.message);
+      }
     }
 
     const match = matchOfficeWithPairing(coords.lat, coords.lon, officeLocation, {

@@ -3,9 +3,9 @@ const router = express.Router();
 const attendanceController = require('../controllers/attendanceController');
 const auth = require('../middleware/auth');
 const role = require('../middleware/role');
-const upload = require('../middleware/upload'); // ⬅️ We'll create this file next
+const { optionalAttendanceImage } = require('../middleware/upload');
 
-router.post('/', auth, upload.single('image'), attendanceController.markAttendance);
+router.post('/', auth, optionalAttendanceImage, attendanceController.markAttendance);
 router.get('/all', auth, role('admin'), attendanceController.getAllAttendance);
 router.get('/last', auth, attendanceController.getLastAttendance);
 router.get('/user/:userId/summary/:year/:month', auth, role('admin'), attendanceController.getUserSummary);
