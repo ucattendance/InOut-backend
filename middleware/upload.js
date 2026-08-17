@@ -1,14 +1,15 @@
+const fs = require('fs');
+const path = require('path');
 const multer = require('multer');
 const cloudinary = require('../config/cloudinary');
+
+const uploadsDir = path.join(__dirname, '..', 'uploads');
 
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 8 * 1024 * 1024 },
 });
 
-/**
- * Parse the selfie in-memory. Never wait on Cloudinary during the HTTP request.
- */
 const optionalAttendanceImage = (req, res, next) => {
   upload.single('image')(req, res, (err) => {
     if (err) {
@@ -19,35 +20,61 @@ const optionalAttendanceImage = (req, res, next) => {
   });
 };
 
-const uploadAttendanceImageBuffer = (buffer, timeoutMs = 8000) =>
-  new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('Cloudinary upload timed out')), timeoutMs);
-    const stream = cloudinary.uploader.upload_stream(
-      { folder: 'attendance_images', resource_type: 'image' },
-      (error, result) => {
-        clearTimeout(timer);
-        if (error) reject(error);
-        else resolve(result);
-      }
-    );
-    stream.end(buffer);
-  });
+const withTimeout = (promise, ms, label) =>
+  Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(label || 'upload timed out')), ms)
+    ),
+  ]);
 
-/** Try to get a Cloudinary URL now; never throw — checkout/check-in must still save. */
+const saveLocalAttendanceImage = (buffer) => {
+  if (!buffer?.length) return '';
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+  const name = `attendance-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+  fs.writeFileSync(path.join(uploadsDir, name), buffer);
+  return `/uploads/${name}`;
+};
+
+const uploadToCloudinary = async (buffer) => {
+  const dataUri = `data:image/jpeg;base64,${Buffer.from(buffer).toString('base64')}`;
+  const result = await cloudinary.uploader.upload(dataUri, {
+    folder: 'attendance_images',
+    resource_type: 'image',
+  });
+  return result?.secure_url || '';
+};
+
+/**
+ * Prefer Cloudinary; if it fails/times out, save on disk so Image (Out) still shows.
+ */
 const uploadAttendanceImageNow = async (buffer) => {
-  if (!buffer) return '';
+  if (!buffer?.length) {
+    console.error('Attendance image missing buffer');
+    return '';
+  }
+
   try {
-    const result = await uploadAttendanceImageBuffer(buffer);
-    return result?.secure_url || '';
+    const url = await withTimeout(uploadToCloudinary(buffer), 10000, 'Cloudinary upload timed out');
+    if (url) return url;
   } catch (err) {
-    console.error('Attendance image upload failed:', err.message);
+    console.error('Attendance Cloudinary upload failed:', err.message);
+  }
+
+  try {
+    const localPath = saveLocalAttendanceImage(buffer);
+    if (localPath) console.log('Attendance image saved locally:', localPath);
+    return localPath;
+  } catch (err) {
+    console.error('Attendance local image save failed:', err.message);
     return '';
   }
 };
 
-/** Fallback if the request already returned — attach URL later. */
 const saveAttendanceImageInBackground = (attendanceId, buffer) => {
-  if (!attendanceId || !buffer) return;
+  if (!attendanceId || !buffer?.length) return;
   setImmediate(async () => {
     try {
       const Attendance = require('../models/Attendance');

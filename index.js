@@ -46,7 +46,7 @@ try {
 
 // Ping Route
 app.get('/ping', (req, res) => res.send('pong'));
-app.get('/version', (req, res) => res.json({ build: 'backend-deploy-v18-checkout-image' }));
+app.get('/version', (req, res) => res.json({ build: 'backend-deploy-v19-checkout-image-local' }));
 
 // Route Mounts 
 app.use('/attendance', require('./routes/attendanceRoutes'));
