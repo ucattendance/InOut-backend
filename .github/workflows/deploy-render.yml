@@ -1,8 +1,8 @@
-name: Deploy Backend to Render
+name: Deploy Backend to Render (legacy — Linode is production)
 
+# Disabled on push: production backend runs on Linode VPS (see deploy/LINODE_API_SETUP.md).
+# Re-enable push trigger only if you switch back to Render.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:

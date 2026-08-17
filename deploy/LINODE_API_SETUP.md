@@ -55,6 +55,33 @@ pm2 logs inout-backend --lines 20
 curl http://127.0.0.1:5010/ping
 ```
 
+## 5) Email (reminders / leave / register)
+
+`.env`-la add pannunga:
+
+```env
+NOTIFY_EMAIL=admin@urbancode.in
+NOTIFY_PASSWORD=your_gmail_app_password
+ATTENDANCE_REMINDERS_ENABLED=true
+MONTHLY_REPORTS_ENABLED=true
+```
+
+Restart:
+
+```bash
+pm2 restart inout-backend
+pm2 logs inout-backend --lines 30
+```
+
+Logs-la `[AttendanceReminder] Scheduler started` varanum.
+
+Test (no live send):
+
+```bash
+cd ~/Inout-backend
+node scripts/testAttendanceReminders.js
+```
+
 ## Notes
 
 - App listens on **5010** (see `.env` PORT).
