@@ -4,6 +4,7 @@ const multer = require('multer');
 const cloudinary = require('../config/cloudinary');
 
 const uploadsDir = path.join(__dirname, '..', 'uploads');
+const PUBLIC_API = (process.env.PUBLIC_API_URL || 'https://api.inout.urbancode.tech').replace(/\/$/, '');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -28,6 +29,8 @@ const withTimeout = (promise, ms, label) =>
     ),
   ]);
 
+const publicUploadUrl = (filename) => `${PUBLIC_API}/uploads/${filename}`;
+
 const saveLocalAttendanceImage = (buffer) => {
   if (!buffer?.length) return '';
   if (!fs.existsSync(uploadsDir)) {
@@ -35,7 +38,7 @@ const saveLocalAttendanceImage = (buffer) => {
   }
   const name = `attendance-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
   fs.writeFileSync(path.join(uploadsDir, name), buffer);
-  return `/uploads/${name}`;
+  return publicUploadUrl(name);
 };
 
 const uploadToCloudinary = async (buffer) => {
@@ -48,7 +51,7 @@ const uploadToCloudinary = async (buffer) => {
 };
 
 /**
- * Prefer Cloudinary; if it fails/times out, save on disk so Image (Out) still shows.
+ * Always save locally first (dashboard can show it), then try Cloudinary.
  */
 const uploadAttendanceImageNow = async (buffer) => {
   if (!buffer?.length) {
@@ -56,21 +59,21 @@ const uploadAttendanceImageNow = async (buffer) => {
     return '';
   }
 
+  let localUrl = '';
   try {
-    const url = await withTimeout(uploadToCloudinary(buffer), 10000, 'Cloudinary upload timed out');
+    localUrl = saveLocalAttendanceImage(buffer);
+  } catch (err) {
+    console.error('Attendance local image save failed:', err.message);
+  }
+
+  try {
+    const url = await withTimeout(uploadToCloudinary(buffer), 8000, 'Cloudinary upload timed out');
     if (url) return url;
   } catch (err) {
     console.error('Attendance Cloudinary upload failed:', err.message);
   }
 
-  try {
-    const localPath = saveLocalAttendanceImage(buffer);
-    if (localPath) console.log('Attendance image saved locally:', localPath);
-    return localPath;
-  } catch (err) {
-    console.error('Attendance local image save failed:', err.message);
-    return '';
-  }
+  return localUrl;
 };
 
 const saveAttendanceImageInBackground = (attendanceId, buffer) => {

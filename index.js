@@ -27,9 +27,16 @@ app.use(express.json());
 const uploadsPath = path.join(__dirname, 'uploads');
 app.use('/uploads', express.static(uploadsPath, {
   setHeaders: (res, filePath) => {
-    const mime = require('mime');
-    res.setHeader('Content-Type', mime.getType(filePath));
-  }
+    const ext = path.extname(filePath).toLowerCase();
+    const types = {
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+      '.webp': 'image/webp',
+    };
+    res.setHeader('Content-Type', types[ext] || 'image/jpeg');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+  },
 }));
 
 // Swagger API docs
@@ -46,7 +53,7 @@ try {
 
 // Ping Route
 app.get('/ping', (req, res) => res.send('pong'));
-app.get('/version', (req, res) => res.json({ build: 'backend-deploy-v19-checkout-image-local' }));
+app.get('/version', (req, res) => res.json({ build: 'backend-deploy-v20-uploads-static' }));
 
 // Route Mounts 
 app.use('/attendance', require('./routes/attendanceRoutes'));
