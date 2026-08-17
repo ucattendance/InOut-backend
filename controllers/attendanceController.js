@@ -17,7 +17,7 @@ const {
   fetchAttendanceInRange,
 } = require('../utils/attendanceQuery');
 const { applyProfileGateOnCheckIn } = require('../utils/profileCompletion');
-const { saveAttendanceImageInBackground } = require('../middleware/upload');
+const { saveAttendanceImageInBackground, uploadAttendanceImageNow } = require('../middleware/upload');
 
 const resolveAttendanceUserIds = async (userId) => {
   const user = await User.findById(userId).select('email employeeId phone name');
@@ -213,12 +213,17 @@ exports.markAttendance = async (req, res) => {
     const isInOffice = match.isInOffice;
     const matchedOfficeName = match.isInOffice ? match.officeName : null;
 
+    let imageUrl = '';
+    if (req.file?.buffer) {
+      imageUrl = await uploadAttendanceImageNow(req.file.buffer);
+    }
+
     const attendance = new Attendance({
       user: req.user._id,
       type: attendanceType,
       location: req.body.location,
       comment: req.body.comment || '',
-      image: '',
+      image: imageUrl,
       isInOffice,
       officeName: matchedOfficeName || 'Outside Office',
       timestamp: new Date(),
@@ -232,7 +237,7 @@ exports.markAttendance = async (req, res) => {
       console.error('Attendance cache clear failed:', cacheErr.message);
     }
 
-    if (req.file?.buffer) {
+    if (req.file?.buffer && !imageUrl) {
       saveAttendanceImageInBackground(attendance._id, req.file.buffer);
     }
 

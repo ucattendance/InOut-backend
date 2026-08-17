@@ -19,23 +19,39 @@ const optionalAttendanceImage = (req, res, next) => {
   });
 };
 
-const uploadAttendanceImageBuffer = (buffer) =>
+const uploadAttendanceImageBuffer = (buffer, timeoutMs = 8000) =>
   new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Cloudinary upload timed out')), timeoutMs);
     const stream = cloudinary.uploader.upload_stream(
       { folder: 'attendance_images', resource_type: 'image' },
-      (error, result) => (error ? reject(error) : resolve(result))
+      (error, result) => {
+        clearTimeout(timer);
+        if (error) reject(error);
+        else resolve(result);
+      }
     );
     stream.end(buffer);
   });
 
-/** Check-in/out already saved — attach Cloudinary URL later if upload works. */
+/** Try to get a Cloudinary URL now; never throw — checkout/check-in must still save. */
+const uploadAttendanceImageNow = async (buffer) => {
+  if (!buffer) return '';
+  try {
+    const result = await uploadAttendanceImageBuffer(buffer);
+    return result?.secure_url || '';
+  } catch (err) {
+    console.error('Attendance image upload failed:', err.message);
+    return '';
+  }
+};
+
+/** Fallback if the request already returned — attach URL later. */
 const saveAttendanceImageInBackground = (attendanceId, buffer) => {
   if (!attendanceId || !buffer) return;
   setImmediate(async () => {
     try {
       const Attendance = require('../models/Attendance');
-      const result = await uploadAttendanceImageBuffer(buffer);
-      const url = result?.secure_url || '';
+      const url = await uploadAttendanceImageNow(buffer);
       if (!url) return;
       await Attendance.findByIdAndUpdate(attendanceId, { image: url });
     } catch (err) {
@@ -46,4 +62,5 @@ const saveAttendanceImageInBackground = (attendanceId, buffer) => {
 
 module.exports = upload;
 module.exports.optionalAttendanceImage = optionalAttendanceImage;
+module.exports.uploadAttendanceImageNow = uploadAttendanceImageNow;
 module.exports.saveAttendanceImageInBackground = saveAttendanceImageInBackground;
