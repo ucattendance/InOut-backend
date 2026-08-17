@@ -17,6 +17,7 @@ const {
   fetchAttendanceInRange,
 } = require('../utils/attendanceQuery');
 const { applyProfileGateOnCheckIn } = require('../utils/profileCompletion');
+const { saveAttendanceImageInBackground } = require('../middleware/upload');
 
 const resolveAttendanceUserIds = async (userId) => {
   const user = await User.findById(userId).select('email employeeId phone name');
@@ -215,13 +216,17 @@ exports.markAttendance = async (req, res) => {
       type: req.body.type,
       location: req.body.location,
       comment: req.body.comment || '',
-      image: req.file?.path || '',
+      image: '',
       isInOffice,
       officeName: matchedOfficeName || 'Outside Office',
       timestamp: new Date(),
     });
 
     await attendance.save();
+
+    if (req.file?.buffer) {
+      saveAttendanceImageInBackground(attendance._id, req.file.buffer);
+    }
 
     const response = {
       message: 'Attendance marked',
