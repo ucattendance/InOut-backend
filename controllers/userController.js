@@ -5,7 +5,19 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Schedule = require('../models/Schedule');
-const { clearIncompleteTrackingIfComplete } = require('../utils/profileCompletion');
+const {
+  clearIncompleteTrackingIfComplete,
+  unlockIfProfileComplete,
+  getMissingProfileFields,
+} = require('../utils/profileCompletion');
+
+const withProfileCompletion = (user) => {
+  const obj = typeof user.toObject === 'function' ? user.toObject() : { ...user };
+  const missingFields = getMissingProfileFields(user);
+  obj.profileIncomplete = missingFields.length > 0;
+  obj.missingFields = missingFields;
+  return obj;
+};
 
 const applyBankDetailsToUpdate = (updateData, bankDetails) => {
   if (!bankDetails || typeof bankDetails !== 'object') return;
@@ -52,6 +64,8 @@ const userController = {
         updatedAt: 1
       }).sort({name: 1});
 
+      await Promise.all(users.map((user) => unlockIfProfileComplete(user)));
+
       res.json(users);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -66,6 +80,8 @@ const userController = {
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
       }
+
+      await unlockIfProfileComplete(user);
 
       res.json(user);
     } catch (error) {
@@ -84,7 +100,9 @@ const userController = {
 
       if (!user) return res.status(404).json({ message: 'User not found' });
 
-      res.json(user);
+      await unlockIfProfileComplete(user);
+
+      res.json(withProfileCompletion(user));
     } catch (error) {
       res.status(500).json({ message: error.message });
     }
@@ -149,7 +167,7 @@ const userController = {
 
       await clearIncompleteTrackingIfComplete(updated);
 
-      res.json(updated);
+      res.json(withProfileCompletion(updated));
     } catch (error) {
       console.error('Error in updateProfile:', error);
       res.status(500).json({ message: error.message });
@@ -160,7 +178,8 @@ const userController = {
     try {
       const user = await User.findById(req.user._id).select('-password');
       if (!user) return res.status(404).json({ error: 'User not found' });
-      res.json(user);
+      await unlockIfProfileComplete(user);
+      res.json(withProfileCompletion(user));
     } catch (error) {
       console.error('Error fetching user:', error);
       res.status(500).json({ error: 'Internal server error' });

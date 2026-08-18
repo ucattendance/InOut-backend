@@ -159,17 +159,9 @@ exports.markAttendance = async (req, res) => {
       justLocked: false,
     };
 
-    // Profile gate + 3-day lock apply to check-in only (backend is source of truth)
+    // Profile gate + 3-day lock apply to check-in only (backend is source of truth).
+    // Always evaluate completeness first so a later-completed profile auto-unlocks.
     if (attendanceType === 'check-in') {
-      if (user.attendanceLocked) {
-        return res.status(403).json({
-          error: 'Attendance locked',
-          code: 'ATTENDANCE_LOCKED',
-          message:
-            'Your attendance has been locked because your profile is incomplete. Contact an admin to unlock.',
-        });
-      }
-
       profileGate = await applyProfileGateOnCheckIn(user);
 
       if (profileGate.locked) {
@@ -177,7 +169,7 @@ exports.markAttendance = async (req, res) => {
           error: 'Attendance locked',
           code: 'ATTENDANCE_LOCKED',
           message:
-            'Your attendance has been locked because your profile is incomplete. Contact an admin to unlock.',
+            'Your attendance has been locked because your profile is incomplete. Complete the missing fields or contact an admin to unlock.',
           missingFields: profileGate.missingFields,
         });
       }

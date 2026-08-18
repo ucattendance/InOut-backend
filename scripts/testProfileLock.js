@@ -71,11 +71,9 @@ async function runUnitAndMocked() {
     assert.strictEqual(isProfileComplete(incomplete), false);
     assert.ok(getMissingProfileFields(incomplete).includes('address'));
     assert.ok(getMissingProfileFields(incomplete).includes('bankDetails.ifscCode'));
-    assert.ok(getMissingProfileFields(incomplete).includes('dateOfJoining'));
-    assert.ok(getMissingProfileFields(incomplete).includes('skills'));
-    assert.ok(getMissingProfileFields(incomplete).includes('rolesAndResponsibility'));
-    assert.ok(getMissingProfileFields(incomplete).includes('company'));
-    assert.ok(getMissingProfileFields(incomplete).includes('position'));
+    assert.ok(getMissingProfileFields(incomplete).includes('dateOfBirth'));
+    assert.ok(getMissingProfileFields(incomplete).includes('bloodGroup'));
+    assert.ok(!getMissingProfileFields(incomplete).includes('skills'));
     pass('unit: detects incomplete profile fields');
   } catch (e) {
     fail('unit: detects incomplete profile fields', e);
@@ -91,21 +89,46 @@ async function runUnitAndMocked() {
   }
 
   try {
-    const missingSkills = makeUser({ ...completeProfileFields, skills: [] });
-    assert.strictEqual(isProfileComplete(missingSkills), false);
-    assert.deepStrictEqual(getMissingProfileFields(missingSkills), ['skills']);
-    pass('unit: one missing required field (empty skills) = incomplete');
+    const missingIfsc = makeUser({
+      ...completeProfileFields,
+      bankDetails: { ...completeProfileFields.bankDetails, ifscCode: '' },
+    });
+    assert.strictEqual(isProfileComplete(missingIfsc), false);
+    assert.deepStrictEqual(getMissingProfileFields(missingIfsc), ['bankDetails.ifscCode']);
+    pass('unit: one missing required field (IFSC) = incomplete');
   } catch (e) {
-    fail('unit: one missing required field (empty skills) = incomplete', e);
+    fail('unit: one missing required field (IFSC) = incomplete', e);
+  }
+
+  try {
+    const aliasAccount = makeUser({
+      ...completeProfileFields,
+      bankDetails: {
+        bankingName: 'HDFC',
+        accountNumber: '998877',
+        ifscCode: 'HDFC0001',
+      },
+    });
+    assert.strictEqual(isProfileComplete(aliasAccount), true);
+    pass('unit: bank accountNumber alias counts as complete');
+  } catch (e) {
+    fail('unit: bank accountNumber alias counts as complete', e);
+  }
+
+  try {
+    const skillsOptional = makeUser({ ...completeProfileFields, skills: [] });
+    assert.strictEqual(isProfileComplete(skillsOptional), true);
+    pass('unit: skills are not required for profile completion');
+  } catch (e) {
+    fail('unit: skills are not required for profile completion', e);
   }
 
   try {
     const missingJoining = makeUser({ ...completeProfileFields, dateOfJoining: null });
-    assert.strictEqual(isProfileComplete(missingJoining), false);
-    assert.ok(getMissingProfileFields(missingJoining).includes('dateOfJoining'));
-    pass('unit: one missing required field (dateOfJoining) = incomplete');
+    assert.strictEqual(isProfileComplete(missingJoining), true);
+    pass('unit: dateOfJoining is not required for profile completion');
   } catch (e) {
-    fail('unit: one missing required field (dateOfJoining) = incomplete', e);
+    fail('unit: dateOfJoining is not required for profile completion', e);
   }
 
   try {
@@ -201,19 +224,37 @@ async function runUnitAndMocked() {
     fail('mock: locked user remains locked on check-in gate', e);
   }
 
-  // Completing profile while locked does NOT auto-unlock
+  // Completing profile while locked auto-unlocks
   try {
     const user = makeUser({
       ...completeProfileFields,
       attendanceLocked: true,
+      attendanceLockedAt: new Date(),
       profileIncompleteSince: new Date(),
     });
     await clearIncompleteTrackingIfComplete(user);
-    assert.strictEqual(user.attendanceLocked, true);
-    assert.ok(user.profileIncompleteSince);
-    pass('mock: locked user is not auto-unlocked by profile completion');
+    assert.strictEqual(user.attendanceLocked, false);
+    assert.strictEqual(user.attendanceLockedAt, null);
+    assert.strictEqual(user.profileIncompleteSince, null);
+    pass('mock: locked user is auto-unlocked when profile is complete');
   } catch (e) {
-    fail('mock: locked user is not auto-unlocked by profile completion', e);
+    fail('mock: locked user is auto-unlocked when profile is complete', e);
+  }
+
+  try {
+    const user = makeUser({
+      ...completeProfileFields,
+      attendanceLocked: true,
+      attendanceLockedAt: new Date(),
+      profileIncompleteSince: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+    });
+    const gate = await applyProfileGateOnCheckIn(user);
+    assert.strictEqual(gate.locked, false);
+    assert.strictEqual(gate.profileIncomplete, false);
+    assert.strictEqual(user.attendanceLocked, false);
+    pass('mock: check-in auto-unlocks when locked user has completed profile');
+  } catch (e) {
+    fail('mock: check-in auto-unlocks when locked user has completed profile', e);
   }
 
   // Non-admin blocked by role middleware

@@ -1,19 +1,10 @@
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 
-const REQUIRED_PROFILE_CHECKS = [
-  { key: 'address', get: (u) => u.address },
-  { key: 'bloodGroup', get: (u) => u.bloodGroup },
-  { key: 'dateOfBirth', get: (u) => u.dateOfBirth },
-  { key: 'bankDetails.bankingName', get: (u) => u.bankDetails?.bankingName },
-  { key: 'bankDetails.bankAccountNumber', get: (u) => u.bankDetails?.bankAccountNumber },
-  { key: 'bankDetails.ifscCode', get: (u) => u.bankDetails?.ifscCode },
-  { key: 'skills', get: (u) => u.skills },
-];
-
 const isFilled = (value) => {
   if (value == null) return false;
   if (value instanceof Date) return !Number.isNaN(value.getTime());
   if (typeof value === 'string') return value.trim().length > 0;
+  if (typeof value === 'number') return Number.isFinite(value);
   if (Array.isArray(value)) {
     return value.some((item) => {
       if (item == null) return false;
@@ -23,6 +14,40 @@ const isFilled = (value) => {
   }
   return true;
 };
+
+const firstFilled = (...values) => {
+  for (const value of values) {
+    if (isFilled(value)) return value;
+  }
+  return undefined;
+};
+
+const REQUIRED_PROFILE_CHECKS = [
+  { key: 'address', get: (u) => firstFilled(u.address, u.residentialAddress) },
+  { key: 'bloodGroup', get: (u) => firstFilled(u.bloodGroup, u.blood_group) },
+  { key: 'dateOfBirth', get: (u) => firstFilled(u.dateOfBirth, u.dob, u.birthDate) },
+  {
+    key: 'bankDetails.bankingName',
+    get: (u) =>
+      firstFilled(
+        u.bankDetails?.bankingName,
+        u.bankDetails?.bankName,
+        u.bankDetails?.accountHolderName
+      ),
+  },
+  {
+    key: 'bankDetails.bankAccountNumber',
+    get: (u) =>
+      firstFilled(
+        u.bankDetails?.bankAccountNumber,
+        u.bankDetails?.accountNumber
+      ),
+  },
+  {
+    key: 'bankDetails.ifscCode',
+    get: (u) => firstFilled(u.bankDetails?.ifscCode, u.bankDetails?.ifsc),
+  },
+];
 
 const getProfileIncompleteGraceMs = () => {
   const raw = process.env.PROFILE_INCOMPLETE_GRACE_MS;
@@ -44,6 +69,26 @@ const hasIncompleteGraceExpired = (profileIncompleteSince, now = new Date()) => 
   return now.getTime() - started >= getProfileIncompleteGraceMs();
 };
 
+const needsCompletionReset = (user) =>
+  Boolean(user?.attendanceLocked || user?.profileIncompleteSince || user?.attendanceLockedAt);
+
+const resetCompletionTracking = (user) => {
+  user.profileIncompleteSince = null;
+  user.attendanceLocked = false;
+  user.attendanceLockedAt = null;
+};
+
+/**
+ * If required profile fields are filled, clear grace tracking and auto-unlock.
+ * Locked users who later complete their profile should be able to check in again.
+ */
+const unlockIfProfileComplete = async (user) => {
+  if (!user || !isProfileComplete(user) || !needsCompletionReset(user)) return user;
+  resetCompletionTracking(user);
+  await user.save();
+  return user;
+};
+
 /**
  * Persist incomplete-profile tracking / auto-lock for check-in.
  * Mutates and saves the user document when state changes.
@@ -60,12 +105,12 @@ const applyProfileGateOnCheckIn = async (user, now = new Date()) => {
   const profileIncomplete = missingFields.length > 0;
 
   if (!profileIncomplete) {
-    if (user.profileIncompleteSince) {
-      user.profileIncompleteSince = null;
+    if (needsCompletionReset(user)) {
+      resetCompletionTracking(user);
       await user.save();
     }
     return {
-      locked: Boolean(user.attendanceLocked),
+      locked: false,
       profileIncomplete: false,
       missingFields: [],
       justLocked: false,
@@ -112,15 +157,8 @@ const applyProfileGateOnCheckIn = async (user, now = new Date()) => {
   };
 };
 
-/** Clear grace tracking when profile becomes complete (does not unlock a locked user). */
-const clearIncompleteTrackingIfComplete = async (user) => {
-  if (!user || user.attendanceLocked) return user;
-  if (!isProfileComplete(user)) return user;
-  if (!user.profileIncompleteSince) return user;
-  user.profileIncompleteSince = null;
-  await user.save();
-  return user;
-};
+/** Clear grace tracking / lock when profile becomes complete. */
+const clearIncompleteTrackingIfComplete = async (user) => unlockIfProfileComplete(user);
 
 module.exports = {
   THREE_DAYS_MS,
@@ -131,4 +169,5 @@ module.exports = {
   getProfileIncompleteGraceMs,
   applyProfileGateOnCheckIn,
   clearIncompleteTrackingIfComplete,
+  unlockIfProfileComplete,
 };
