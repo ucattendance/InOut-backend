@@ -68,7 +68,35 @@ const isBirthdayToday = (dateOfBirth, now = new Date()) => {
 const isSystemAdminUser = (user) =>
   String(user?.name || '').trim() === 'Admin' || String(user?.role || '') === 'admin';
 
-const getWebhookUrl = () => String(process.env.BIRTHDAY_CHAT_WEBHOOK_URL || '').trim();
+const getWebhookUrl = () =>
+  String(process.env.BIRTHDAY_CHAT_WEBHOOK_URL || '')
+    .replace(/[\s\r\n]+/g, '')
+    .replace(/^['"]+|['"]+$/g, '');
+
+const chatErrorDetail = (data) => {
+  if (!data) return '';
+  if (typeof data === 'string') return data;
+  return data.error?.message || data.message || JSON.stringify(data);
+};
+
+const postJsonToWebhook = async (url, payload) => {
+  const body = JSON.stringify(payload);
+  return axios.post(url, body, {
+    timeout: 15000,
+    headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+    transformRequest: [(data) => data],
+    validateStatus: () => true,
+    maxContentLength: 1024 * 1024,
+    maxBodyLength: 1024 * 1024,
+  });
+};
+
+const toCardHtml = (plain) =>
+  String(plain || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\n/g, '<br>');
 
 /**
  * Active users with a DOB. System admin account excluded.
@@ -144,16 +172,32 @@ const postChatWebhook = async (text) => {
   if (!url) {
     throw new Error('BIRTHDAY_CHAT_WEBHOOK_URL is not configured');
   }
+  if (!/^https:\/\//i.test(url)) {
+    throw new Error('BIRTHDAY_CHAT_WEBHOOK_URL must start with https://');
+  }
 
-  await axios.post(
-    url,
-    { text },
-    {
-      timeout: 15000,
-      headers: { 'Content-Type': 'application/json' },
-      validateStatus: (status) => status >= 200 && status < 300,
-    }
-  );
+  const message = String(text || '').trim();
+  const textRes = await postJsonToWebhook(url, { text: message });
+  if (textRes.status >= 200 && textRes.status < 300) return textRes.data;
+
+  const cardRes = await postJsonToWebhook(url, {
+    cardsV2: [
+      {
+        cardId: 'birthday-wish',
+        card: {
+          sections: [
+            {
+              widgets: [{ textParagraph: { text: toCardHtml(message) } }],
+            },
+          ],
+        },
+      },
+    ],
+  });
+  if (cardRes.status >= 200 && cardRes.status < 300) return cardRes.data;
+
+  const detail = chatErrorDetail(cardRes.data) || chatErrorDetail(textRes.data) || 'Bad Request';
+  throw new Error(`Google Chat webhook failed (${cardRes.status}): ${String(detail).slice(0, 400)}`);
 };
 
 const sendWishForUser = async (user, { dateKey, dryRun = false, force = false } = {}) => {
