@@ -3,9 +3,12 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "node scripts/testProfileLock.js && node scripts/testAttendanceReminders.js && node scripts/testMonthlyReport.js",
+    "test": "node scripts/testProfileLock.js && node scripts/testAttendanceReminders.js && node scripts/testMonthlyReport.js && node scripts/testBirthdayWishes.js",
     "test:reminders": "node scripts/testAttendanceReminders.js",
     "test:monthly-report": "node scripts/testMonthlyReport.js",
+    "test:birthday": "node scripts/testBirthdayWishes.js",
+    "birthday:dry-run": "node scripts/testBirthdayWishes.js --dry-run",
+    "birthday:send": "node scripts/testBirthdayWishes.js --send",
     "monthly-report:dry-run": "node scripts/testMonthlyReport.js --dry-run",
     "monthly-report:send": "node scripts/testMonthlyReport.js --send",
     "start": "node index.js",
