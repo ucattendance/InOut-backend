@@ -13,7 +13,7 @@
  * Force re-send even if already logged:
  *   node scripts/testBirthdayWishes.js --send --force
  */
-require('dotenv').config();
+require('dotenv').config({ override: true });
 const assert = require('assert');
 const cron = require('node-cron');
 const {
@@ -127,10 +127,10 @@ function runUnit() {
     const { getWebhookUrl } = require('../services/birthdayWishService');
     const prev = process.env.BIRTHDAY_CHAT_WEBHOOK_URL;
     process.env.BIRTHDAY_CHAT_WEBHOOK_URL =
-      ' https://chat.googleapis.com/v1/spaces/AAA/messages?key=KEY&\n token=TOKEN ';
+      ' https://chat.googleapis.com/v1/spaces/AAA/messages?key=KEY&\n token=ABCDEFGHIJKLMNOPQRST ';
     assert.strictEqual(
       getWebhookUrl(),
-      'https://chat.googleapis.com/v1/spaces/AAA/messages?key=KEY&token=TOKEN'
+      'https://chat.googleapis.com/v1/spaces/AAA/messages?key=KEY&token=ABCDEFGHIJKLMNOPQRST'
     );
     if (prev == null) delete process.env.BIRTHDAY_CHAT_WEBHOOK_URL;
     else process.env.BIRTHDAY_CHAT_WEBHOOK_URL = prev;

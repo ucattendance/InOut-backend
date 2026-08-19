@@ -3,7 +3,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
-require('dotenv').config();
+require('dotenv').config({ override: true });
 const authMiddleware = require('./middleware/auth');
 const swaggerUi = require('swagger-ui-express');
 const YAML = require('yamljs');

@@ -1,4 +1,6 @@
-const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
+const https = require('https');
 const User = require('../models/User');
 const BirthdayWishLog = require('../models/BirthdayWishLog');
 const { TIMEZONE, getIstDateKey } = require('./attendanceReminderService');
@@ -68,10 +70,35 @@ const isBirthdayToday = (dateOfBirth, now = new Date()) => {
 const isSystemAdminUser = (user) =>
   String(user?.name || '').trim() === 'Admin' || String(user?.role || '') === 'admin';
 
-const getWebhookUrl = () =>
-  String(process.env.BIRTHDAY_CHAT_WEBHOOK_URL || '')
+const sanitizeWebhookUrl = (value) =>
+  String(value || '')
     .replace(/[\s\r\n]+/g, '')
     .replace(/^['"]+|['"]+$/g, '');
+
+const webhookTokenLen = (url) => {
+  const match = String(url).match(/[?&]token=([^&]*)/);
+  return match && match[1] ? match[1].length : 0;
+};
+
+const readWebhookUrlFromEnvFile = () => {
+  try {
+    const envPath = path.join(__dirname, '..', '.env');
+    const raw = fs.readFileSync(envPath, 'utf8');
+    const line = raw.split(/\r?\n/).find((row) => /^\s*BIRTHDAY_CHAT_WEBHOOK_URL\s*=/.test(row));
+    if (!line) return '';
+    return sanitizeWebhookUrl(line.replace(/^\s*BIRTHDAY_CHAT_WEBHOOK_URL\s*=\s*/, ''));
+  } catch (_) {
+    return '';
+  }
+};
+
+const getWebhookUrl = () => {
+  const fromEnv = sanitizeWebhookUrl(process.env.BIRTHDAY_CHAT_WEBHOOK_URL);
+  if (webhookTokenLen(fromEnv) >= 20) return fromEnv;
+  const fromFile = readWebhookUrlFromEnvFile();
+  if (webhookTokenLen(fromFile) >= 20) return fromFile;
+  return fromEnv || fromFile;
+};
 
 const chatErrorDetail = (data) => {
   if (!data) return '';
@@ -79,17 +106,52 @@ const chatErrorDetail = (data) => {
   return data.error?.message || data.message || JSON.stringify(data);
 };
 
-const postJsonToWebhook = async (url, payload) => {
-  const body = JSON.stringify(payload);
-  return axios.post(url, body, {
-    timeout: 15000,
-    headers: { 'Content-Type': 'application/json; charset=UTF-8' },
-    transformRequest: [(data) => data],
-    validateStatus: () => true,
-    maxContentLength: 1024 * 1024,
-    maxBodyLength: 1024 * 1024,
+const postJsonToWebhook = (url, payload) =>
+  new Promise((resolve, reject) => {
+    const body = JSON.stringify(payload);
+    let parsed;
+    try {
+      parsed = new URL(url);
+    } catch (err) {
+      reject(new Error(`Invalid webhook URL: ${err.message}`));
+      return;
+    }
+
+    const req = https.request(
+      {
+        protocol: 'https:',
+        hostname: parsed.hostname,
+        path: `${parsed.pathname}${parsed.search}`,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Content-Length': Buffer.byteLength(body),
+        },
+        timeout: 15000,
+      },
+      (res) => {
+        const chunks = [];
+        res.on('data', (chunk) => chunks.push(chunk));
+        res.on('end', () => {
+          const raw = Buffer.concat(chunks).toString('utf8');
+          let data = raw;
+          try {
+            data = raw ? JSON.parse(raw) : {};
+          } catch (_) {
+            data = raw;
+          }
+          resolve({ status: res.statusCode, data });
+        });
+      }
+    );
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('Google Chat webhook timeout'));
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
   });
-};
 
 const toCardHtml = (plain) =>
   String(plain || '')
@@ -174,6 +236,11 @@ const postChatWebhook = async (text) => {
   }
   if (!/^https:\/\//i.test(url)) {
     throw new Error('BIRTHDAY_CHAT_WEBHOOK_URL must start with https://');
+  }
+  if (webhookTokenLen(url) < 20) {
+    throw new Error(
+      `Webhook token missing or truncated (token_len=${webhookTokenLen(url)}). Put the full URL in quotes on one line in .env`
+    );
   }
 
   const message = String(text || '').trim();
