@@ -10,6 +10,8 @@ const {
   getTodayBoundsUtc,
   REMINDER_TYPES,
   URLS,
+  buildUserAliasMap,
+  resolveAttendanceUserId,
 } = require('../services/attendanceReminderService');
 const {
   buildCheckInReminderHtml,
@@ -126,7 +128,7 @@ function runUnit() {
       { _id: '1', email: 'a@x.com', position: 'Developer' },
       { _id: '2', email: 'b@x.com', position: 'Director' },
       { _id: '3', email: 'c@x.com', position: 'QA' },
-    ].filter((u) => !isDirectorUser(u));
+    ];
 
     const checkedIn = new Set(['1']);
     const checkedOut = new Set();
@@ -134,7 +136,7 @@ function runUnit() {
     const amRecipients = employees.filter((u) => !checkedIn.has(String(u._id)));
     assert.deepStrictEqual(
       amRecipients.map((u) => u._id),
-      ['3']
+      ['2', '3']
     );
 
     const pmRecipients = employees.filter((u) => {
@@ -146,13 +148,45 @@ function runUnit() {
       ['1']
     );
 
-    // Case: checked in before 10 AM => not in AM list
     assert.ok(!amRecipients.find((u) => u._id === '1'));
-    // Director never included
-    assert.ok(!employees.find((u) => u._id === '2'));
-    pass('unit: recipient selection (AM/PM + director skip)');
+    assert.ok(employees.find((u) => u._id === '2'));
+    pass('unit: recipient selection (AM missing check-in, PM missing check-out)');
   } catch (e) {
-    fail('unit: recipient selection (AM/PM + director skip)', e);
+    fail('unit: recipient selection (AM missing check-in, PM missing check-out)', e);
+  }
+
+  try {
+    const aliases = buildUserAliasMap([
+      { _id: 'abc123', employeeId: 'UC0007', email: 'sam@x.com' },
+    ]);
+    assert.strictEqual(resolveAttendanceUserId('abc123', aliases), 'abc123');
+    assert.strictEqual(resolveAttendanceUserId('UC0007', aliases), 'abc123');
+    assert.strictEqual(resolveAttendanceUserId('sam@x.com', aliases), 'abc123');
+    assert.strictEqual(
+      resolveAttendanceUserId({ _id: 'abc123', employeeId: 'UC0007' }, aliases),
+      'abc123'
+    );
+    pass('unit: attendance user alias matching for reminders');
+  } catch (e) {
+    fail('unit: attendance user alias matching for reminders', e);
+  }
+
+  try {
+    const { shouldSkipAttendanceReminder } = require('../services/attendanceReminderService');
+    assert.strictEqual(shouldSkipAttendanceReminder({ email: 'a@x.com' }), false);
+    assert.strictEqual(
+      shouldSkipAttendanceReminder({ email: 'a@x.com', skipAttendanceReminders: true }),
+      true
+    );
+    const prev = process.env.REMINDER_SKIP_EMAILS;
+    process.env.REMINDER_SKIP_EMAILS = 'skip@x.com, other@x.com';
+    assert.strictEqual(shouldSkipAttendanceReminder({ email: 'skip@x.com' }), true);
+    assert.strictEqual(shouldSkipAttendanceReminder({ email: 'keep@x.com' }), false);
+    if (prev == null) delete process.env.REMINDER_SKIP_EMAILS;
+    else process.env.REMINDER_SKIP_EMAILS = prev;
+    pass('unit: skip reminder for listed users only');
+  } catch (e) {
+    fail('unit: skip reminder for listed users only', e);
   }
 
   // Duplicate protection contract

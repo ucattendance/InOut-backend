@@ -60,6 +60,7 @@ const userController = {
         attendanceLocked: 1,
         profileIncompleteSince: 1,
         attendanceLockedAt: 1,
+        skipAttendanceReminders: 1,
         createdAt: 1,
         updatedAt: 1
       }).sort({name: 1});
@@ -211,6 +212,7 @@ const userController = {
       isActive,
       employeeId,
       adminComments,
+      skipAttendanceReminders,
       branch,
       works
     } = req.body;
@@ -244,6 +246,9 @@ const userController = {
     if (isActive !== undefined) updateData.isActive = isActive;
     if (employeeId !== undefined) updateData.employeeId = employeeId;
     if (adminComments !== undefined) updateData.adminComments = adminComments;
+    if (skipAttendanceReminders !== undefined) {
+      updateData.skipAttendanceReminders = Boolean(skipAttendanceReminders);
+    }
     if (branch !== undefined) updateData.branch = branch;
     if (Array.isArray(works)) updateData.works = works;
 

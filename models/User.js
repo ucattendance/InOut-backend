@@ -152,6 +152,13 @@ const UserSchema = new mongoose.Schema({
     default: null,
   },
 
+  // If true, skip 10 AM / 6 PM / 8 PM attendance reminder emails
+  skipAttendanceReminders: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+
 }, {
   timestamps: true
 });

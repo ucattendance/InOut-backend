@@ -58,7 +58,7 @@ const hasUsableEmail = (user) =>
   typeof user?.email === 'string' && user.email.trim().length > 0;
 
 /**
- * Active employees eligible for reminders (excludes Directors, admins, inactive).
+ * Active employees eligible for monthly reports (excludes Directors, admins, inactive).
  */
 const getEligibleEmployees = async () => {
   const users = await User.find({
@@ -66,18 +66,105 @@ const getEligibleEmployees = async () => {
     isActive: { $ne: false },
     email: { $exists: true, $nin: [null, ''] },
   })
-    .select('_id name email position works role isActive')
+    .select('_id name email position works role isActive employeeId')
     .lean();
 
   return users.filter((user) => hasUsableEmail(user) && !isDirectorUser(user));
 };
 
+const isSystemAdminUser = (user) =>
+  String(user?.name || '').trim() === 'Admin' || String(user?.role || '') === 'admin';
+
+/**
+ * Attendance reminder recipients: every active user with email.
+ * Directors / other roles included. System Admin account excluded.
+ */
+const getAttendanceReminderRecipients = async () => {
+  const users = await User.find({
+    isActive: { $ne: false },
+    name: { $ne: 'Admin' },
+    role: { $ne: 'admin' },
+    email: { $exists: true, $nin: [null, ''] },
+  })
+    .select('_id name email position works role isActive employeeId skipAttendanceReminders')
+    .lean();
+
+  return users.filter(
+    (user) => hasUsableEmail(user) && !isSystemAdminUser(user) && !shouldSkipAttendanceReminder(user)
+  );
+};
+
+const parseSkipEmails = () =>
+  String(process.env.REMINDER_SKIP_EMAILS || '')
+    .split(/[,;\s]+/)
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+
+const shouldSkipAttendanceReminder = (user) => {
+  if (!user) return true;
+  if (user.skipAttendanceReminders === true) return true;
+  const email = String(user.email || '').trim().toLowerCase();
+  return Boolean(email && parseSkipEmails().includes(email));
+};
+
+const aliasKeysForUser = (user) => {
+  const keys = [];
+  if (user?._id != null) keys.push(String(user._id));
+  if (user?.employeeId) keys.push(String(user.employeeId).trim());
+  if (user?.email) keys.push(String(user.email).trim().toLowerCase());
+  return keys.filter(Boolean);
+};
+
+const buildUserAliasMap = (users) => {
+  const aliases = new Map();
+  for (const user of users) {
+    const id = String(user._id);
+    for (const key of aliasKeysForUser(user)) {
+      aliases.set(key, id);
+      aliases.set(key.toLowerCase(), id);
+    }
+  }
+  return aliases;
+};
+
+const resolveAttendanceUserId = (userRef, aliases) => {
+  if (userRef == null) return null;
+
+  const candidates = [];
+  if (typeof userRef === 'object') {
+    if (userRef._id != null) candidates.push(String(userRef._id));
+    if (userRef.employeeId) candidates.push(String(userRef.employeeId).trim());
+    if (userRef.email) candidates.push(String(userRef.email).trim().toLowerCase());
+  } else {
+    candidates.push(String(userRef).trim());
+  }
+
+  for (const raw of candidates) {
+    if (!raw || raw === '[object Object]') continue;
+    if (aliases?.has(raw)) return aliases.get(raw);
+    const lower = raw.toLowerCase();
+    if (aliases?.has(lower)) return aliases.get(lower);
+  }
+
+  const fallback = candidates.find((raw) => raw && raw !== '[object Object]');
+  return fallback || null;
+};
+
 /**
  * Build today's check-in / check-out sets from Attendance.
- * Handles ObjectId and string user refs.
+ * Matches Mongo _id, employeeId (UC0001), and email so checkout mail
+ * still goes to people whose attendance row used a legacy user ref.
  */
 const getTodayAttendanceSets = async (now = new Date()) => {
   const { start, end, dateKey } = getTodayBoundsUtc(now);
+  const users = await User.find({
+    isActive: { $ne: false },
+    name: { $ne: 'Admin' },
+  })
+    .select('_id employeeId email')
+    .lean();
+  const aliases = buildUserAliasMap(users);
+
   const rows = await Attendance.find({
     timestamp: { $gte: start, $lte: end },
     type: { $in: ['check-in', 'check-out'] },
@@ -89,8 +176,8 @@ const getTodayAttendanceSets = async (now = new Date()) => {
   const checkedOut = new Set();
 
   for (const row of rows) {
-    if (row.user == null) continue;
-    const id = String(row.user);
+    const id = resolveAttendanceUserId(row.user, aliases);
+    if (!id) continue;
     if (row.type === 'check-in') checkedIn.add(id);
     if (row.type === 'check-out') checkedOut.add(id);
   }
@@ -226,10 +313,10 @@ const sendOneReminder = async ({
 
 /**
  * Reminder #1 — 10:00 AM IST
- * Active employees, not directors, no check-in today.
+ * All active staff with email, no check-in today.
  */
 const runCheckInReminder = async ({ now = new Date(), dryRun = false } = {}) => {
-  const employees = await getEligibleEmployees();
+  const employees = await getAttendanceReminderRecipients();
   const { checkedIn, dateKey } = await getTodayAttendanceSets(now);
   const recipients = employees.filter((u) => !checkedIn.has(String(u._id)));
 
@@ -255,13 +342,13 @@ const runCheckInReminder = async ({ now = new Date(), dryRun = false } = {}) => 
 };
 
 /**
- * Reminder #2 / #3 — checked in, not checked out, not directors.
+ * Reminder #2 / #3 — checked in today, not checked out yet.
  */
 const runCheckoutReminder = async (
   reminderType,
   { now = new Date(), dryRun = false, finalReminder = false } = {}
 ) => {
-  const employees = await getEligibleEmployees();
+  const employees = await getAttendanceReminderRecipients();
   const { checkedIn, checkedOut, dateKey } = await getTodayAttendanceSets(now);
 
   const recipients = employees.filter((u) => {
@@ -362,6 +449,10 @@ module.exports = {
   getTodayBoundsUtc,
   isDirectorUser,
   getEligibleEmployees,
+  getAttendanceReminderRecipients,
+  shouldSkipAttendanceReminder,
+  buildUserAliasMap,
+  resolveAttendanceUserId,
   getTodayAttendanceSets,
   alreadySent,
   claimReminderSlot,
