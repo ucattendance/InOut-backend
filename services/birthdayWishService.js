@@ -83,22 +83,48 @@ const webhookTokenLen = (url) => {
 const readWebhookUrlFromEnvFile = () => {
   try {
     const envPath = path.join(__dirname, '..', '.env');
-    const raw = fs.readFileSync(envPath, 'utf8');
-    const line = raw.split(/\r?\n/).find((row) => /^\s*BIRTHDAY_CHAT_WEBHOOK_URL\s*=/.test(row));
-    if (!line) return '';
-    return sanitizeWebhookUrl(line.replace(/^\s*BIRTHDAY_CHAT_WEBHOOK_URL\s*=\s*/, ''));
+    const rows = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
+    for (let i = 0; i < rows.length; i += 1) {
+      if (!/^\s*BIRTHDAY_CHAT_WEBHOOK_URL\s*=/.test(rows[i])) continue;
+      let value = rows[i].replace(/^\s*BIRTHDAY_CHAT_WEBHOOK_URL\s*=\s*/, '');
+      const quote = value[0] === '"' || value[0] === "'" ? value[0] : '';
+      if (quote && value.length >= 2 && value.endsWith(quote)) {
+        return sanitizeWebhookUrl(value);
+      }
+      if (quote) {
+        while (i + 1 < rows.length && !value.endsWith(quote)) {
+          i += 1;
+          value += rows[i];
+        }
+        return sanitizeWebhookUrl(value);
+      }
+      while (
+        i + 1 < rows.length &&
+        rows[i + 1] &&
+        !/^\s*[A-Za-z_][A-Za-z0-9_]*\s*=/.test(rows[i + 1])
+      ) {
+        i += 1;
+        value += rows[i];
+      }
+      return sanitizeWebhookUrl(value);
+    }
+    return '';
   } catch (_) {
     return '';
   }
 };
 
-const getWebhookUrl = () => {
-  const fromEnv = sanitizeWebhookUrl(process.env.BIRTHDAY_CHAT_WEBHOOK_URL);
-  if (webhookTokenLen(fromEnv) >= 20) return fromEnv;
-  const fromFile = readWebhookUrlFromEnvFile();
-  if (webhookTokenLen(fromFile) >= 20) return fromFile;
-  return fromEnv || fromFile;
+const pickWebhookUrl = (fromEnv, fromFile) => {
+  const envUrl = sanitizeWebhookUrl(fromEnv);
+  const fileUrl = sanitizeWebhookUrl(fromFile);
+  const envLen = webhookTokenLen(envUrl);
+  const fileLen = webhookTokenLen(fileUrl);
+  if (fileLen > envLen) return fileUrl;
+  if (envLen > fileLen) return envUrl;
+  return envUrl || fileUrl;
 };
+
+const getWebhookUrl = () => pickWebhookUrl(process.env.BIRTHDAY_CHAT_WEBHOOK_URL, readWebhookUrlFromEnvFile());
 
 const chatErrorDetail = (data) => {
   if (!data) return '';
@@ -109,19 +135,20 @@ const chatErrorDetail = (data) => {
 const postJsonToWebhook = (url, payload) =>
   new Promise((resolve, reject) => {
     const body = JSON.stringify(payload);
-    let parsed;
-    try {
-      parsed = new URL(url);
-    } catch (err) {
-      reject(new Error(`Invalid webhook URL: ${err.message}`));
+    const withoutProto = String(url).replace(/^https:\/\//i, '');
+    const slash = withoutProto.indexOf('/');
+    if (slash < 0) {
+      reject(new Error('Invalid webhook URL'));
       return;
     }
+    const hostname = withoutProto.slice(0, slash);
+    const requestPath = withoutProto.slice(slash);
 
     const req = https.request(
       {
         protocol: 'https:',
-        hostname: parsed.hostname,
-        path: `${parsed.pathname}${parsed.search}`,
+        hostname,
+        path: requestPath,
         method: 'POST',
         headers: {
           'Content-Type': 'application/json; charset=UTF-8',
@@ -237,7 +264,7 @@ const postChatWebhook = async (text) => {
   if (!/^https:\/\//i.test(url)) {
     throw new Error('BIRTHDAY_CHAT_WEBHOOK_URL must start with https://');
   }
-  if (webhookTokenLen(url) < 20) {
+  if (webhookTokenLen(url) < 40) {
     throw new Error(
       `Webhook token missing or truncated (token_len=${webhookTokenLen(url)}). Put the full URL in quotes on one line in .env`
     );
@@ -354,6 +381,7 @@ module.exports = {
   isLeapYear,
   isBirthdayToday,
   getWebhookUrl,
+  pickWebhookUrl,
   getActiveUsersWithDob,
   getTodaysBirthdayUsers,
   alreadySent,

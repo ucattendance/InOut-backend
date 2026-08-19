@@ -124,17 +124,17 @@ function runUnit() {
   }
 
   try {
-    const { getWebhookUrl } = require('../services/birthdayWishService');
-    const prev = process.env.BIRTHDAY_CHAT_WEBHOOK_URL;
-    process.env.BIRTHDAY_CHAT_WEBHOOK_URL =
-      ' https://chat.googleapis.com/v1/spaces/AAA/messages?key=KEY&\n token=ABCDEFGHIJKLMNOPQRST ';
+    const { pickWebhookUrl } = require('../services/birthdayWishService');
+    const shortUrl =
+      ' https://chat.googleapis.com/v1/spaces/AAA/messages?key=KEY&\n token=SHORTTOKEN ';
+    const longUrl =
+      'https://chat.googleapis.com/v1/spaces/AAA/messages?key=KEY&token=ABCDEFGHIJKLMNOPQRSTUVWXYZ012345';
     assert.strictEqual(
-      getWebhookUrl(),
-      'https://chat.googleapis.com/v1/spaces/AAA/messages?key=KEY&token=ABCDEFGHIJKLMNOPQRST'
+      pickWebhookUrl(shortUrl, ''),
+      'https://chat.googleapis.com/v1/spaces/AAA/messages?key=KEY&token=SHORTTOKEN'
     );
-    if (prev == null) delete process.env.BIRTHDAY_CHAT_WEBHOOK_URL;
-    else process.env.BIRTHDAY_CHAT_WEBHOOK_URL = prev;
-    pass('unit: webhook URL strips whitespace/newlines');
+    assert.strictEqual(pickWebhookUrl(shortUrl, longUrl), longUrl);
+    pass('unit: webhook URL strips whitespace and prefers longer token');
   } catch (e) {
     fail('unit: webhook URL strips whitespace/newlines', e);
   }

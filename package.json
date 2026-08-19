@@ -7,6 +7,7 @@
     "test:reminders": "node scripts/testAttendanceReminders.js",
     "test:monthly-report": "node scripts/testMonthlyReport.js",
     "test:birthday": "node scripts/testBirthdayWishes.js",
+    "birthday:check": "node scripts/checkBirthdayWebhook.js",
     "birthday:dry-run": "node scripts/testBirthdayWishes.js --dry-run",
     "birthday:send": "node scripts/testBirthdayWishes.js --send",
     "monthly-report:dry-run": "node scripts/testMonthlyReport.js --dry-run",
