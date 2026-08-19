@@ -15,6 +15,13 @@ const summarize = (label, report) => {
   console.log(
     `[AttendanceReminder] ${label} date=${report.dateKey} candidates=${report.candidateCount} sent=${sent} skipped=${skipped} failed=${failed}`
   );
+  if (failed > 0) {
+    const sample = (report.results || [])
+      .filter((r) => r.status === 'failed')
+      .slice(0, 3)
+      .map((r) => `${r.email}: ${r.error || 'unknown'}`);
+    console.error(`[AttendanceReminder] ${label} errors: ${sample.join(' | ')}`);
+  }
 };
 
 const safeRun = async (label, fn) => {
