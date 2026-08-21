@@ -67,11 +67,11 @@ function runUnit() {
       DEFAULT_WISH_TEXT
     );
     assert.ok(text.includes('Dear Ram Kumar,'));
-    assert.ok(text.includes('completing 3 year(s)'));
+    assert.ok(text.includes('Congratulations on completing another wonderful year with Urbancode!'));
     assert.ok(text.includes('Team Urbancode Edutech'));
+    assert.ok(text.includes('Together We Always Learn to Grow'));
     assert.ok(!text.includes('{name}'));
-    assert.ok(!text.includes('{years}'));
-    pass('unit: default joining wish replaces {name} and {years}');
+    pass('unit: default joining wish replaces {name}');
   } catch (e) {
     fail('unit: default joining wish replaces {name} and {years}', e);
   }

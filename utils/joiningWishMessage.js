@@ -3,14 +3,16 @@ const { unescapeEnvText, firstNameOf } = require('./birthdayWishMessage');
 const DEFAULT_WISH_TEXT = [
   'Dear {name},',
   '',
-  'Congratulations on completing {years} year(s) with Urbancode! 🎉✨',
+  '🎉 *Congratulations on completing another wonderful year with Urbancode!* 🎉',
   '',
-  'Thank you for your dedication, hard work, and the positive energy you bring every day 🙌.',
+  'Your dedication, contribution, and commitment have been an important part of our journey. We truly appreciate the value you bring to the Urbancode family. 🙏',
   '',
-  'We are proud to have you on the team and look forward to many more milestones together.',
+  'May the years ahead bring you greater achievements, exciting opportunities, continuous growth, and success. 🚀✨',
+  '',
+  'Thank you for being a valued part of our journey. We look forward to celebrating many more milestones together! 🥂',
   '',
   'Warm wishes,',
-  'Team Urbancode Edutech 🎓',
+  '*Team Urbancode Edutech* 💙',
   'Together We Always Learn to Grow',
 ].join('\n');
 
