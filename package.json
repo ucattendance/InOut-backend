@@ -9,6 +9,7 @@
     "test:birthday": "node scripts/testBirthdayWishes.js",
     "test:joining": "node scripts/testJoiningWishes.js",
     "birthday:check": "node scripts/checkBirthdayWebhook.js",
+    "joining:check": "node scripts/checkJoiningWebhook.js",
     "birthday:dry-run": "node scripts/testBirthdayWishes.js --dry-run",
     "birthday:send": "node scripts/testBirthdayWishes.js --send",
     "joining:dry-run": "node scripts/testJoiningWishes.js --dry-run",

@@ -6,7 +6,7 @@ const {
   getDobMonthDay,
   getIstYearMonthDay,
   isLeapYear,
-  getWebhookUrl,
+  getJoiningWebhookUrl,
   postChatWebhook,
 } = require('./birthdayWishService');
 const { buildJoiningWishText } = require('../utils/joiningWishMessage');
@@ -163,7 +163,7 @@ const sendWishForUser = async (
   }
 
   try {
-    await postChatWebhook(text);
+    await postChatWebhook(text, getJoiningWebhookUrl());
     if (force) {
       await JoiningWishLog.findOneAndUpdate(
         { user: userId, dateKey },
@@ -199,14 +199,14 @@ const sendWishForUser = async (
 
 /**
  * Post one chat wish per active user whose joining anniversary is today (IST).
- * Reuses BIRTHDAY_CHAT_WEBHOOK_URL (same Google Chat space).
+ * Uses JOINING_CHAT_WEBHOOK_URL when set (so Chat shows a separate webhook name).
  */
 const runJoiningWishes = async ({ now = new Date(), dryRun = false, force = false } = {}) => {
   const dateKey = getIstDateKey(now);
-  const webhookUrl = getWebhookUrl();
+  const webhookUrl = getJoiningWebhookUrl();
 
   if (!webhookUrl && !dryRun) {
-    console.log('[JoiningWish] Skipped: BIRTHDAY_CHAT_WEBHOOK_URL is empty');
+    console.log('[JoiningWish] Skipped: JOINING_CHAT_WEBHOOK_URL / BIRTHDAY_CHAT_WEBHOOK_URL is empty');
     return {
       dateKey,
       candidateCount: 0,

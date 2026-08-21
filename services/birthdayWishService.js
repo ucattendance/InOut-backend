@@ -80,13 +80,14 @@ const webhookTokenLen = (url) => {
   return match && match[1] ? match[1].length : 0;
 };
 
-const readWebhookUrlFromEnvFile = () => {
+const readWebhookUrlFromEnvFile = (envKey = 'BIRTHDAY_CHAT_WEBHOOK_URL') => {
   try {
     const envPath = path.join(__dirname, '..', '.env');
+    const keyPattern = new RegExp(`^\\s*${envKey}\\s*=`);
     const rows = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
     for (let i = 0; i < rows.length; i += 1) {
-      if (!/^\s*BIRTHDAY_CHAT_WEBHOOK_URL\s*=/.test(rows[i])) continue;
-      let value = rows[i].replace(/^\s*BIRTHDAY_CHAT_WEBHOOK_URL\s*=\s*/, '');
+      if (!keyPattern.test(rows[i])) continue;
+      let value = rows[i].replace(new RegExp(`^\\s*${envKey}\\s*=\\s*`), '');
       const quote = value[0] === '"' || value[0] === "'" ? value[0] : '';
       if (quote && value.length >= 2 && value.endsWith(quote)) {
         return sanitizeWebhookUrl(value);
@@ -124,7 +125,18 @@ const pickWebhookUrl = (fromEnv, fromFile) => {
   return envUrl || fileUrl;
 };
 
-const getWebhookUrl = () => pickWebhookUrl(process.env.BIRTHDAY_CHAT_WEBHOOK_URL, readWebhookUrlFromEnvFile());
+const getWebhookUrl = () =>
+  pickWebhookUrl(process.env.BIRTHDAY_CHAT_WEBHOOK_URL, readWebhookUrlFromEnvFile('BIRTHDAY_CHAT_WEBHOOK_URL'));
+
+/** Prefer JOINING_CHAT_WEBHOOK_URL; fall back to birthday webhook if unset. */
+const getJoiningWebhookUrl = () => {
+  const joining = pickWebhookUrl(
+    process.env.JOINING_CHAT_WEBHOOK_URL,
+    readWebhookUrlFromEnvFile('JOINING_CHAT_WEBHOOK_URL')
+  );
+  if (webhookTokenLen(joining) >= 40) return joining;
+  return getWebhookUrl();
+};
 
 const chatErrorDetail = (data) => {
   if (!data) return '';
@@ -256,13 +268,13 @@ const markWishFailed = async ({ userId, dateKey, errorMessage }) => {
   );
 };
 
-const postChatWebhook = async (text) => {
-  const url = getWebhookUrl();
+const postChatWebhook = async (text, webhookUrl) => {
+  const url = webhookUrl || getWebhookUrl();
   if (!url) {
-    throw new Error('BIRTHDAY_CHAT_WEBHOOK_URL is not configured');
+    throw new Error('Chat webhook URL is not configured');
   }
   if (!/^https:\/\//i.test(url)) {
-    throw new Error('BIRTHDAY_CHAT_WEBHOOK_URL must start with https://');
+    throw new Error('Chat webhook URL must start with https://');
   }
   if (webhookTokenLen(url) < 40) {
     throw new Error(
@@ -277,7 +289,7 @@ const postChatWebhook = async (text) => {
   const cardRes = await postJsonToWebhook(url, {
     cardsV2: [
       {
-        cardId: 'birthday-wish',
+        cardId: 'chat-wish',
         card: {
           sections: [
             {
@@ -381,6 +393,7 @@ module.exports = {
   isLeapYear,
   isBirthdayToday,
   getWebhookUrl,
+  getJoiningWebhookUrl,
   pickWebhookUrl,
   postChatWebhook,
   getActiveUsersWithDob,
