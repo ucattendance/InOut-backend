@@ -133,6 +133,14 @@ async function startServer() {
       console.error('Birthday wish scheduler failed to start:', schedErr.message);
     }
 
+    // Work anniversary wishes (dateOfJoining) to same chat webhook (09:05 Asia/Kolkata)
+    try {
+      const { startJoiningWishScheduler } = require('./jobs/joiningWishScheduler');
+      startJoiningWishScheduler();
+    } catch (schedErr) {
+      console.error('Joining wish scheduler failed to start:', schedErr.message);
+    }
+
     const port = process.env.PORT || 5000;
     app.listen(port, () => console.log(`Server running on port ${port}`));
   } catch (err) {

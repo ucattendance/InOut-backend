@@ -382,6 +382,7 @@ module.exports = {
   isBirthdayToday,
   getWebhookUrl,
   pickWebhookUrl,
+  postChatWebhook,
   getActiveUsersWithDob,
   getTodaysBirthdayUsers,
   alreadySent,
