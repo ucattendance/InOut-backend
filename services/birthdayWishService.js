@@ -138,6 +138,15 @@ const getJoiningWebhookUrl = () => {
   return getWebhookUrl();
 };
 
+/** Separate Incoming Webhook for new-employee welcome (do not fall back). */
+const getNewUserWebhookUrl = () => {
+  const url = pickWebhookUrl(
+    process.env.NEW_USER_CHAT_WEBHOOK_URL,
+    readWebhookUrlFromEnvFile('NEW_USER_CHAT_WEBHOOK_URL')
+  );
+  return webhookTokenLen(url) >= 40 ? url : '';
+};
+
 const chatErrorDetail = (data) => {
   if (!data) return '';
   if (typeof data === 'string') return data;
@@ -198,6 +207,56 @@ const toCardHtml = (plain) =>
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/\n/g, '<br>');
+
+/**
+ * Public HTTPS URL for the birthday poster shown in Google Chat.
+ * Incoming webhooks cannot upload files — image must be reachable by Google's servers.
+ */
+const getBirthdayPosterImageUrl = () => {
+  const raw = String(process.env.BIRTHDAY_POSTER_IMAGE_URL || '').trim();
+  if (!raw) return '';
+  if (!/^https:\/\//i.test(raw)) {
+    throw new Error('BIRTHDAY_POSTER_IMAGE_URL must be a public https:// URL');
+  }
+  return raw;
+};
+
+/**
+ * Google Chat cardsV2 payload: optional poster image + wish text.
+ * @see https://developers.google.com/workspace/chat/api/guides/message-formats/cards
+ */
+const buildBirthdayChatPayload = (text, { imageUrl, userName } = {}) => {
+  const message = String(text || '').trim();
+  const widgets = [];
+
+  if (imageUrl) {
+    widgets.push({
+      image: {
+        imageUrl,
+        altText: `Happy Birthday ${userName || ''}`.trim() || 'Birthday poster',
+      },
+    });
+  }
+
+  if (message) {
+    widgets.push({ textParagraph: { text: toCardHtml(message) } });
+  }
+
+  return {
+    cardsV2: [
+      {
+        cardId: 'birthday-wish',
+        card: {
+          header: {
+            title: 'Happy Birthday! 🎂',
+            subtitle: userName ? String(userName) : 'Urbancode',
+          },
+          sections: [{ widgets }],
+        },
+      },
+    ],
+  };
+};
 
 /**
  * Active users with a DOB. System admin account excluded.
@@ -268,7 +327,7 @@ const markWishFailed = async ({ userId, dateKey, errorMessage }) => {
   );
 };
 
-const postChatWebhook = async (text, webhookUrl) => {
+const postChatWebhook = async (text, webhookUrl, { imageUrl, userName } = {}) => {
   const url = webhookUrl || getWebhookUrl();
   if (!url) {
     throw new Error('Chat webhook URL is not configured');
@@ -283,23 +342,27 @@ const postChatWebhook = async (text, webhookUrl) => {
   }
 
   const message = String(text || '').trim();
+  const posterUrl = imageUrl || '';
+
+  // Prefer card with image (and text) when a public poster URL is configured.
+  if (posterUrl) {
+    const cardPayload = buildBirthdayChatPayload(message, {
+      imageUrl: posterUrl,
+      userName,
+    });
+    const cardRes = await postJsonToWebhook(url, cardPayload);
+    if (cardRes.status >= 200 && cardRes.status < 300) return cardRes.data;
+
+    const detail = chatErrorDetail(cardRes.data) || 'Bad Request';
+    throw new Error(
+      `Google Chat webhook failed (${cardRes.status}) with image card: ${String(detail).slice(0, 400)}`
+    );
+  }
+
   const textRes = await postJsonToWebhook(url, { text: message });
   if (textRes.status >= 200 && textRes.status < 300) return textRes.data;
 
-  const cardRes = await postJsonToWebhook(url, {
-    cardsV2: [
-      {
-        cardId: 'chat-wish',
-        card: {
-          sections: [
-            {
-              widgets: [{ textParagraph: { text: toCardHtml(message) } }],
-            },
-          ],
-        },
-      },
-    ],
-  });
+  const cardRes = await postJsonToWebhook(url, buildBirthdayChatPayload(message, { userName }));
   if (cardRes.status >= 200 && cardRes.status < 300) return cardRes.data;
 
   const detail = chatErrorDetail(cardRes.data) || chatErrorDetail(textRes.data) || 'Bad Request';
@@ -309,22 +372,52 @@ const postChatWebhook = async (text, webhookUrl) => {
 const sendWishForUser = async (user, { dateKey, dryRun = false, force = false } = {}) => {
   const userId = user._id;
   const text = buildBirthdayWishText(user);
+  let imageUrl = '';
+  try {
+    imageUrl = getBirthdayPosterImageUrl();
+  } catch (err) {
+    return {
+      status: 'failed',
+      userId: String(userId),
+      name: user.name,
+      text,
+      error: err.message,
+    };
+  }
 
   if (!force && (await alreadySent(userId, dateKey))) {
-    return { status: 'skipped_duplicate', userId: String(userId), name: user.name, text };
+    return {
+      status: 'skipped_duplicate',
+      userId: String(userId),
+      name: user.name,
+      text,
+      imageUrl: imageUrl || undefined,
+    };
   }
 
   if (dryRun) {
-    return { status: 'dry_run', userId: String(userId), name: user.name, text };
+    return {
+      status: 'dry_run',
+      userId: String(userId),
+      name: user.name,
+      text,
+      imageUrl: imageUrl || undefined,
+    };
   }
 
   const claimed = force ? true : await claimWishSlot({ userId, name: user.name, dateKey });
   if (!claimed) {
-    return { status: 'skipped_duplicate', userId: String(userId), name: user.name, text };
+    return {
+      status: 'skipped_duplicate',
+      userId: String(userId),
+      name: user.name,
+      text,
+      imageUrl: imageUrl || undefined,
+    };
   }
 
   try {
-    await postChatWebhook(text);
+    await postChatWebhook(text, undefined, { imageUrl, userName: user.name });
     if (force) {
       await BirthdayWishLog.findOneAndUpdate(
         { user: userId, dateKey },
@@ -339,7 +432,13 @@ const sendWishForUser = async (user, { dateKey, dryRun = false, force = false } 
         { upsert: true }
       );
     }
-    return { status: 'sent', userId: String(userId), name: user.name, text };
+    return {
+      status: 'sent',
+      userId: String(userId),
+      name: user.name,
+      text,
+      imageUrl: imageUrl || undefined,
+    };
   } catch (err) {
     await markWishFailed({
       userId,
@@ -351,6 +450,7 @@ const sendWishForUser = async (user, { dateKey, dryRun = false, force = false } 
       userId: String(userId),
       name: user.name,
       text,
+      imageUrl: imageUrl || undefined,
       error: err.message,
     };
   }
@@ -394,6 +494,9 @@ module.exports = {
   isBirthdayToday,
   getWebhookUrl,
   getJoiningWebhookUrl,
+  getNewUserWebhookUrl,
+  getBirthdayPosterImageUrl,
+  buildBirthdayChatPayload,
   pickWebhookUrl,
   postChatWebhook,
   getActiveUsersWithDob,

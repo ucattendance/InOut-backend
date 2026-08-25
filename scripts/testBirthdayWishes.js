@@ -138,6 +138,22 @@ function runUnit() {
   } catch (e) {
     fail('unit: webhook URL strips whitespace/newlines', e);
   }
+
+  try {
+    const { buildBirthdayChatPayload } = require('../services/birthdayWishService');
+    const payload = buildBirthdayChatPayload('Dear Ram,\nHappy Birthday!', {
+      imageUrl: 'https://res.cloudinary.com/demo/image/upload/sample.jpg',
+      userName: 'Ram Kumar',
+    });
+    const widgets = payload.cardsV2[0].card.sections[0].widgets;
+    assert.strictEqual(payload.cardsV2[0].card.header.subtitle, 'Ram Kumar');
+    assert.strictEqual(widgets[0].image.imageUrl, 'https://res.cloudinary.com/demo/image/upload/sample.jpg');
+    assert.ok(widgets[1].textParagraph.text.includes('Dear Ram'));
+    assert.ok(widgets[1].textParagraph.text.includes('<br>'));
+    pass('unit: birthday card payload includes image + text');
+  } catch (e) {
+    fail('unit: birthday card payload includes image + text', e);
+  }
 }
 
 async function runDb() {
