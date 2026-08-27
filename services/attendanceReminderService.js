@@ -252,16 +252,31 @@ const markReminderFailed = async ({ userId, reminderType, dateKey, errorMessage 
   );
 };
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const sendMail = async ({ to, subject, html }) => {
   if (!process.env.NOTIFY_EMAIL || !process.env.NOTIFY_PASSWORD) {
     throw new Error('NOTIFY_EMAIL / NOTIFY_PASSWORD not configured');
   }
-  return transporter.sendMail({
+
+  const payload = {
     from: getSenderFromAddress(),
     to,
     subject,
     html,
-  });
+  };
+
+  let lastErr;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      return await transporter.sendMail(payload);
+    } catch (err) {
+      lastErr = err;
+      console.error(`[AttendanceReminder] SMTP attempt ${attempt}/3 to ${to}: ${err.message}`);
+      if (attempt < 3) await sleep(2000 * attempt);
+    }
+  }
+  throw lastErr;
 };
 
 const sendOneReminder = async ({

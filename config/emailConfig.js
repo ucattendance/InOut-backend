@@ -8,9 +8,9 @@ const transporter = nodemailer.createTransport({
   secure: process.env.SMTP_SECURE !== 'false',
   pool: true,
   maxConnections: 3,
-  connectionTimeout: 20000,
-  greetingTimeout: 15000,
-  socketTimeout: 30000,
+  connectionTimeout: 45000,
+  greetingTimeout: 20000,
+  socketTimeout: 45000,
   auth: {
     user: process.env.NOTIFY_EMAIL,
     pass: process.env.NOTIFY_PASSWORD,
