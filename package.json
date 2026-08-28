@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "node scripts/testProfileLock.js && node scripts/testAttendanceReminders.js && node scripts/testMonthlyReport.js && node scripts/testBirthdayWishes.js && node scripts/testJoiningWishes.js && node scripts/testNewUserWishes.js",
+    "test": "node scripts/testProfileLock.js && node scripts/testAttendanceReminders.js && node scripts/testMonthlyReport.js && node scripts/testBirthdayWishes.js && node scripts/testJoiningWishes.js && node scripts/testNewUserWishes.js && node scripts/testPayslipAuth.js",
+    "test:payslips": "node scripts/testPayslipAuth.js",
     "test:reminders": "node scripts/testAttendanceReminders.js",
     "test:monthly-report": "node scripts/testMonthlyReport.js",
     "test:birthday": "node scripts/testBirthdayWishes.js",

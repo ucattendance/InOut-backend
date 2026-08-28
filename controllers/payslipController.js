@@ -49,10 +49,11 @@ const createPayslip = async (req, res) => {
   }
 };
 
-// @desc Get all payslips
+// @desc Get payslips (admin: all; others: own only)
 const getPayslips = async (req, res) => {
   try {
-    const payslips = await Payslip.find().sort({ createdAt: -1 });
+    const filter = req.user.role === "admin" ? {} : { userId: req.user._id };
+    const payslips = await Payslip.find(filter).sort({ createdAt: -1 });
     res.json(payslips);
   } catch (error) {
     res.status(500).json({ message: "Error fetching payslips", error });

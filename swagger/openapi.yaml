@@ -637,23 +637,39 @@ paths:
   /api/payslips:
     get:
       tags: [Payslips]
-      summary: Get all payslips
-      security: []
+      summary: Get payslips
+      description: |
+        Requires a Bearer JWT.
+        Admins receive all payslips. Employees receive only their own.
       responses:
         '200':
           description: Payslip list
+        '401':
+          description: Missing or invalid token
     post:
       tags: [Payslips]
       summary: Create payslip
-      security: []
+      description: Requires a Bearer JWT with admin role.
       requestBody:
         content:
           application/json:
             schema:
               type: object
+              required: [userId, employeeId, month, year]
+              properties:
+                userId: { type: string }
+                employeeId: { type: string }
+                month: { type: string }
+                year: { type: integer }
       responses:
         '201':
           description: Payslip created
+        '400':
+          description: Missing required fields
+        '401':
+          description: Missing or invalid token
+        '403':
+          description: Not an admin
 
   /uploads/{filename}:
     get:
