@@ -17,18 +17,39 @@ const NewUserWishLogSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    email: {
+      type: String,
+      default: '',
+      index: true,
+    },
+    spaceId: {
+      type: String,
+      default: '',
+    },
     status: {
       type: String,
-      enum: ['sent', 'failed'],
-      default: 'sent',
+      enum: ['pending_join', 'sent', 'failed'],
+      default: 'pending_join',
+    },
+    membershipState: {
+      type: String,
+      default: '',
     },
     errorMessage: {
       type: String,
       default: '',
     },
+    invitedAt: {
+      type: Date,
+    },
+    joinedAt: {
+      type: Date,
+    },
+    lastCheckedAt: {
+      type: Date,
+    },
     sentAt: {
       type: Date,
-      default: Date.now,
     },
   },
   { timestamps: true }

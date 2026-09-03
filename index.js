@@ -141,6 +141,14 @@ async function startServer() {
       console.error('Joining wish scheduler failed to start:', schedErr.message);
     }
 
+    // Welcome wishes after user joins UC_JZ_Team (every few minutes)
+    try {
+      const { startNewUserWelcomeScheduler } = require('./jobs/newUserWelcomeScheduler');
+      startNewUserWelcomeScheduler();
+    } catch (schedErr) {
+      console.error('New user welcome scheduler failed to start:', schedErr.message);
+    }
+
     const port = process.env.PORT || 5000;
     app.listen(port, () => console.log(`Server running on port ${port}`));
   } catch (err) {

@@ -18,6 +18,11 @@ const {
 } = require('../utils/newUserWishMessage');
 const { unescapeEnvText } = require('../utils/birthdayWishMessage');
 const { isSystemAdminUser } = require('../services/newUserWishService');
+const {
+  extractSpaceIdFromWebhookUrl,
+  isMembershipJoined,
+  normalizeMembershipState,
+} = require('../services/googleChatMembershipService');
 
 const args = process.argv.slice(2);
 const wantPreview = args.includes('--preview');
@@ -35,18 +40,24 @@ const fail = (name, err) => {
 
 function runUnit() {
   try {
-    const text = buildNewUserWishText(
-      { name: 'Ram Kumar', position: 'Developer', company: 'Urbancode', employeeId: 'UC0001' },
-      DEFAULT_WISH_TEXT
-    );
+    const user = {
+      name: 'Vishnu Potter',
+      email: 'vishnu@urbancode.in',
+      position: 'Developer',
+      company: 'Urbancode',
+      employeeId: 'UC0001',
+    };
+    const text = buildNewUserWishText(user, DEFAULT_WISH_TEXT);
     assert.ok(text.includes('Welcome to Urbancode Edutech Solutions Pvt. Ltd.!'));
+    assert.ok(text.includes('Vishnu Potter'));
+    assert.ok(!text.includes('<users/'));
+    assert.ok(!text.includes('vishnu@urbancode.in'));
     assert.ok(text.includes('Urbancode family'));
     assert.ok(text.includes('Team Urbancode Edutech Solutions Pvt. Ltd.'));
     assert.ok(!text.includes('{name}'));
-    assert.ok(!text.includes('{position}'));
-    pass('unit: default new-user welcome copy');
+    pass('unit: default welcome copy uses InOut user name');
   } catch (e) {
-    fail('unit: default new-user welcome copy', e);
+    fail('unit: default welcome copy uses InOut user name', e);
   }
 
   try {
@@ -66,12 +77,31 @@ function runUnit() {
   } catch (e) {
     fail('unit: system admin users are skipped', e);
   }
+
+  try {
+    const url =
+      'https://chat.googleapis.com/v1/spaces/AAAA8WZ8dFM/messages?key=KEY&token=TOKEN';
+    assert.strictEqual(extractSpaceIdFromWebhookUrl(url), 'AAAA8WZ8dFM');
+    pass('unit: extract Chat space id from webhook URL');
+  } catch (e) {
+    fail('unit: extract Chat space id from webhook URL', e);
+  }
+
+  try {
+    assert.strictEqual(normalizeMembershipState('joined'), 'JOINED');
+    assert.strictEqual(isMembershipJoined('INVITED'), false);
+    assert.strictEqual(isMembershipJoined('JOINED'), true);
+    pass('unit: membership state helpers');
+  } catch (e) {
+    fail('unit: membership state helpers', e);
+  }
 }
 
 async function sendPreview() {
   const { getNewUserWebhookUrl, postChatWebhook } = require('../services/birthdayWishService');
   const sample = {
     name: 'Ram Kumar',
+    email: 'ram.kumar@urbancode.in',
     position: 'Developer',
     company: 'Urbancode',
     employeeId: 'UC0001',

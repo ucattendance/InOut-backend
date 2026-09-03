@@ -225,8 +225,8 @@ const adminController = {
 
       await PendingUser.findByIdAndDelete(pending._id);
 
-      const { notifyNewUserJoinedSafe } = require('../services/newUserWishService');
-      notifyNewUserJoinedSafe(user);
+      const { notifyNewUserApprovedSafe } = require('../services/newUserWishService');
+      notifyNewUserApprovedSafe(user);
 
       res.json({ message: 'User approved and created successfully.' });
     } catch (error) {
