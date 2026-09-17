@@ -84,6 +84,12 @@ paths:
     get:
       tags: [Users]
       summary: Get all users
+      description: >
+        Salary, bank account details, and statutory fields (`pan`, `uan`, `esiNumber`,
+        `empGrade`) are masked from the response to prevent unauthorized exposure.
+        Admins receive full details; employees see their own salary, bank, and statutory
+        details only, with other users' sensitive fields omitted or masked (`****`).
+        `bankDetails.officeBranch` remains visible for office matching.
       responses:
         '200':
           description: User list
@@ -92,6 +98,7 @@ paths:
     get:
       tags: [Users]
       summary: Get logged-in user
+      description: Returns the authenticated user's full profile, including salary and bank details.
       responses:
         '200':
           description: Current user
@@ -100,12 +107,18 @@ paths:
     get:
       tags: [Users]
       summary: Get profile
+      description: Returns the authenticated user's full profile, including salary and bank details.
       responses:
         '200':
           description: User profile
     put:
       tags: [Users]
       summary: Update profile
+      description: >
+        Updates the authenticated user's profile. `salary`, `isActive`, and `empGrade`
+        are not accepted here (403); admins must use `PUT /users/{id}` or
+        `PUT /users/{id}/salary` instead. Employees may update their own `pan`, `uan`,
+        and `esiNumber`.
       requestBody:
         content:
           application/json:
@@ -114,6 +127,8 @@ paths:
       responses:
         '200':
           description: Profile updated
+        '403':
+          description: Attempted to update admin-only fields (salary, isActive, empGrade)
 
   /users/profile/upload:
     post:
@@ -200,6 +215,9 @@ paths:
     get:
       tags: [Users]
       summary: Get active employees list
+      description: >
+        Bank account numbers, IFSC, UPI, and account holder names are masked for
+        non-admin callers. `bankDetails.officeBranch` is kept for attendance office matching.
       responses:
         '200':
           description: Employee list
@@ -235,6 +253,12 @@ paths:
           description: Attendance recorded (may include profileIncomplete warning on check-in)
         '403':
           description: Attendance locked due to incomplete profile after grace period
+        '409':
+          description: >
+            Duplicate or invalid attendance for today (already checked in/out,
+            checkout without check-in, or day already complete). Response includes
+            `code` such as DUPLICATE_CHECK_IN, DUPLICATE_CHECK_OUT,
+            CHECKOUT_WITHOUT_CHECKIN, or ATTENDANCE_DAY_COMPLETE.
 
   /attendance/me:
     get:
@@ -457,13 +481,19 @@ paths:
   /api/holidays:
     get:
       tags: [Holidays]
-      summary: Get all holidays
+      summary: Get all holidays (admin)
+      description: Requires a Bearer JWT with admin role.
       responses:
         '200':
           description: Holiday list
+        '401':
+          description: Missing or invalid token
+        '403':
+          description: Not an admin
     post:
       tags: [Holidays]
       summary: Add holiday (admin)
+      description: Requires a Bearer JWT with admin role.
       requestBody:
         content:
           application/json:
@@ -472,19 +502,29 @@ paths:
       responses:
         '201':
           description: Holiday added
+        '401':
+          description: Missing or invalid token
+        '403':
+          description: Not an admin
 
   /api/holidays/filter:
     get:
       tags: [Holidays]
-      summary: Filter holidays
+      summary: Filter holidays (admin)
+      description: Requires a Bearer JWT with admin role.
       responses:
         '200':
           description: Filtered holidays
+        '401':
+          description: Missing or invalid token
+        '403':
+          description: Not an admin
 
   /api/holidays/update/{id}:
     put:
       tags: [Holidays]
-      summary: Update holiday
+      summary: Update holiday (admin)
+      description: Requires a Bearer JWT with admin role.
       parameters:
         - name: id
           in: path
@@ -498,11 +538,16 @@ paths:
       responses:
         '200':
           description: Holiday updated
+        '401':
+          description: Missing or invalid token
+        '403':
+          description: Not an admin
 
   /api/holidays/delete/{id}:
     delete:
       tags: [Holidays]
-      summary: Delete holiday
+      summary: Delete holiday (admin)
+      description: Requires a Bearer JWT with admin role.
       parameters:
         - name: id
           in: path
@@ -511,6 +556,10 @@ paths:
       responses:
         '200':
           description: Holiday deleted
+        '401':
+          description: Missing or invalid token
+        '403':
+          description: Not an admin
 
   /api/tasks:
     post:
@@ -611,15 +660,21 @@ paths:
   /schedules:
     get:
       tags: [Schedules]
-      summary: Get all schedules
+      summary: Get all schedules (admin)
+      description: Requires a Bearer JWT with admin role.
       responses:
         '200':
           description: Schedule list
+        '401':
+          description: Missing or invalid token
+        '403':
+          description: Not an admin
 
   /schedules/{id}:
     put:
       tags: [Schedules]
-      summary: Update user schedule
+      summary: Update user schedule (admin)
+      description: Requires a Bearer JWT with admin role.
       parameters:
         - name: id
           in: path
@@ -633,6 +688,10 @@ paths:
       responses:
         '200':
           description: Schedule updated
+        '401':
+          description: Missing or invalid token
+        '403':
+          description: Not an admin
 
   /api/payslips:
     get:

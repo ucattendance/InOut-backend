@@ -6,11 +6,17 @@ const cloudinary = require('../config/cloudinary');
 const uploadsDir = path.join(__dirname, '..', 'uploads');
 const PUBLIC_API = (process.env.PUBLIC_API_URL || 'https://api.inout.urbancode.tech').replace(/\/$/, '');
 
+// Attendance image is optional — soft-fail on parse/size errors (same as pre-validation).
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 8 * 1024 * 1024 },
 });
 
+/**
+ * Optional attendance image (field: image).
+ * Missing / invalid / oversized image → clear req.file and continue attendance.
+ * Never returns 400 for image validation errors.
+ */
 const optionalAttendanceImage = (req, res, next) => {
   upload.single('image')(req, res, (err) => {
     if (err) {

@@ -117,6 +117,10 @@ const UserSchema = new mongoose.Schema({
   },
   bankDetails: BankDetailsSchema
   ,
+  pan: { type: String, default: '' },
+  uan: { type: String, default: '' },
+  esiNumber: { type: String, default: '' },
+  empGrade: { type: String, default: '' },
   // Sequential employee identifier (e.g. UC0001, JZ0001)
   employeeId: {
     type: String,

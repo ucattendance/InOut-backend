@@ -4,13 +4,8 @@ const PayslipSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   employeeId: String,
   employeeDetails: {
-    name: String,
-    designation: String,
-    department: String,
-    company: String,
-    dateOfJoining: { type: Date },
-    bankAccountName: String,
-    bankAccountNumber: String,
+    type: mongoose.Schema.Types.Mixed,
+    default: {},
   },
   attendanceSummary: {
     totalDays: Number,
@@ -28,6 +23,10 @@ const PayslipSchema = new mongoose.Schema({
   netPay: Number,
   month: String,
   year: Number,
+  viewModelSnapshot: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null,
+  },
 });
 
 module.exports = mongoose.model("Payslip", PayslipSchema);

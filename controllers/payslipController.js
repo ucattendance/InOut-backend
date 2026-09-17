@@ -16,6 +16,7 @@ const createPayslip = async (req, res) => {
       netPay,
       month,
       year,
+      viewModelSnapshot,
     } = req.body;
 
     if (!userId || !employeeId || !month || !year) {
@@ -39,6 +40,7 @@ const createPayslip = async (req, res) => {
       netPay: netPay ?? calcNetPay,
       month,
       year,
+      viewModelSnapshot: viewModelSnapshot || null,
     });
 
     await payslip.save();

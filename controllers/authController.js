@@ -17,6 +17,11 @@ const authController = {
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
+      // Only active users can log in (treat missing isActive as active, matching rest of app)
+      if (user.isActive === false) {
+        return res.status(403).json({ error: 'Account is inactive. Please contact admin.' });
+      }
+
       const token = jwt.sign(
         {
           userId: user._id,

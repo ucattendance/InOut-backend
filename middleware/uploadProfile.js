@@ -1,6 +1,6 @@
-const multer = require('multer');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const cloudinary = require('../config/cloudinary');
+const { createMulter, withUploadValidation } = require('./uploadValidation');
 
 // Use a dynamic folder per user (requires auth to run before multer)
 const storage = new CloudinaryStorage({
@@ -15,6 +15,14 @@ const storage = new CloudinaryStorage({
   }
 });
 
-const upload = multer({ storage });
+const upload = createMulter('profileImage', storage);
+
+/** Validated profile pic middleware: JPG/PNG, max 2MB */
+const uploadProfilePic = withUploadValidation(
+  upload.single('profilePic'),
+  'profileImage'
+);
 
 module.exports = upload;
+module.exports.uploadProfilePic = uploadProfilePic;
+module.exports.storage = storage;

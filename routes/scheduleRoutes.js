@@ -1,12 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
+const role = require('../middleware/role');
 const scheduleController = require('../controllers/scheduleController');
 
-// ✅ GET all schedules
-router.get('/', auth, scheduleController.getAllSchedules);
-
-// ✅ UPDATE schedule
-router.put('/:id', auth, scheduleController.updateUserSchedule);
+router.get('/', auth, role('admin'), scheduleController.getAllSchedules);
+router.put('/:id', auth, role('admin'), scheduleController.updateUserSchedule);
 
 module.exports = router;

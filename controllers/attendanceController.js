@@ -17,6 +17,7 @@ const {
   fetchAttendanceInRange,
 } = require('../utils/attendanceQuery');
 const { applyProfileGateOnCheckIn } = require('../utils/profileCompletion');
+const { validateMarkAttendance } = require('../utils/attendanceGuard');
 const { saveAttendanceImageInBackground, uploadAttendanceImageNow } = require('../middleware/upload');
 
 const resolveAttendanceUserIds = async (userId) => {
@@ -173,6 +174,15 @@ exports.markAttendance = async (req, res) => {
           missingFields: profileGate.missingFields,
         });
       }
+    }
+
+    const duplicateGuard = await validateMarkAttendance(req.user._id, attendanceType);
+    if (!duplicateGuard.ok) {
+      return res.status(duplicateGuard.status).json({
+        error: duplicateGuard.message,
+        code: duplicateGuard.code,
+        message: duplicateGuard.message,
+      });
     }
 
     const preferredOfficeName = branchToOfficeName(user);
