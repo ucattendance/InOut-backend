@@ -357,42 +357,70 @@ const userController = {
       const file = req.file;
       if (!file || !file.buffer) return res.status(400).json({ message: 'No file uploaded' });
 
-  let candidateId = req.body.candidateId;
-  // if caller doesn't provide a candidateId, attach to uploader's own record
-  if (!candidateId) candidateId = uploaderId;
-  if (!candidateId) return res.status(400).json({ message: 'candidateId is required' });
+      let candidateId = req.body.candidateId;
+      // if caller doesn't provide a candidateId, attach to uploader's own record
+      if (!candidateId) candidateId = uploaderId;
+      if (!candidateId) return res.status(400).json({ message: 'candidateId is required' });
 
       const cloudinary = require('../config/cloudinary');
+      const {
+        sanitizeFilename,
+        toDownloadUrl,
+        ensurePdfFilename,
+      } = require('../utils/letterStorage');
 
-      // upload buffer to Cloudinary using upload_stream (resource_type raw for PDFs)
+      // upload buffer to Cloudinary (PDF as image type — Cloudinary recommended)
       const streamUpload = (buffer, options) => new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(options, (error, result) => {
           if (result) resolve(result);
           else reject(error);
         });
-        // create readable stream from buffer
         const { Readable } = require('stream');
         const readable = new Readable();
-        readable._read = () => {}; // _read is required but we push manually
+        readable._read = () => {};
         readable.push(buffer);
         readable.push(null);
         readable.pipe(stream);
       });
 
       const folder = `letter_copies/${candidateId}`;
-      const opts = { folder, resource_type: 'raw' };
+      const baseName = sanitizeFilename(file.originalname || 'letter');
+      const opts = {
+        folder,
+        resource_type: 'image',
+        format: 'pdf',
+        public_id: `${baseName}_${Date.now()}`,
+        type: 'upload',
+      };
       const result = await streamUpload(file.buffer, opts);
 
       const fileUrl = result.secure_url || result.url;
-      const filename = result.original_filename || result.public_id || file.originalname || 'letter.pdf';
+      const filename = ensurePdfFilename(
+        file.originalname || result.original_filename || `${baseName}.pdf`
+      );
+      const downloadUrl = toDownloadUrl(fileUrl, filename);
 
-      // push metadata into candidate's record
-      const updated = await User.findByIdAndUpdate(candidateId, { $push: { letterCopies: { url: fileUrl, filename, uploadedBy: uploaderId, uploadedAt: new Date() } } }, { new: true }).select('-password');
+      // push metadata into candidate's record (store viewable PDF URL)
+      const updated = await User.findByIdAndUpdate(
+        candidateId,
+        {
+          $push: {
+            letterCopies: {
+              url: fileUrl,
+              filename,
+              uploadedBy: uploaderId,
+              uploadedAt: new Date(),
+            },
+          },
+        },
+        { new: true }
+      ).select('-password');
       if (!updated) return res.status(404).json({ message: 'Candidate not found' });
 
       res.json({
         message: 'Uploaded',
         url: fileUrl,
+        downloadUrl,
         user: maskSensitiveUserFields(updated, req.user),
       });
     } catch (error) {

@@ -249,6 +249,7 @@ const adminController = {
 
   getAllLetters: async (req, res) => {
     try {
+      const { toDownloadUrl } = require('../utils/letterStorage');
       const letters = await User.aggregate([
         { $unwind: { path: '$letterCopies', preserveNullAndEmptyArrays: false } },
         {
@@ -266,10 +267,65 @@ const adminController = {
         { $sort: { uploadedAt: -1 } },
       ]);
 
-      res.json(letters);
+      res.json(
+        letters.map((row) => ({
+          ...row,
+          downloadUrl: toDownloadUrl(row.url, row.filename),
+        }))
+      );
     } catch (err) {
       console.error('Error fetching all letters:', err);
       res.status(500).json({ error: 'Internal server error' });
+    }
+  },
+
+  /**
+   * Proxy letter PDF download through our API so the browser gets
+   * Content-Type: application/pdf + Content-Disposition: attachment.
+   * Query: ?url=<cloudinaryUrl>&filename=offer.pdf
+   */
+  downloadLetter: async (req, res) => {
+    try {
+      const axios = require('axios');
+      const { toDownloadUrl, ensurePdfFilename } = require('../utils/letterStorage');
+      const sourceUrl = String(req.query.url || '').trim();
+      if (!sourceUrl) {
+        return res.status(400).json({ error: 'url query param is required' });
+      }
+      if (!sourceUrl.includes('res.cloudinary.com')) {
+        return res.status(400).json({ error: 'Only Cloudinary letter URLs are allowed' });
+      }
+
+      const filename = ensurePdfFilename(req.query.filename || 'letter.pdf');
+      const fetchUrl = toDownloadUrl(sourceUrl, filename);
+
+      const upstream = await axios.get(fetchUrl, {
+        responseType: 'arraybuffer',
+        validateStatus: () => true,
+        timeout: 30000,
+      });
+
+      if (upstream.status >= 400) {
+        const hint =
+          upstream.status === 401 || upstream.status === 404
+            ? 'Cloudinary may still be blocking PDF delivery. Enable “Allow delivery of PDF and ZIP files” in Cloudinary → Settings → Security, then re-upload the letter.'
+            : 'Failed to fetch letter from Cloudinary.';
+        return res.status(502).json({
+          error: hint,
+          cloudinaryStatus: upstream.status,
+        });
+      }
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${filename.replace(/"/g, '')}"`
+      );
+      res.setHeader('Cache-Control', 'private, max-age=60');
+      return res.status(200).send(Buffer.from(upstream.data));
+    } catch (err) {
+      console.error('Error downloading letter:', err.message);
+      res.status(500).json({ error: 'Failed to download letter' });
     }
   },
 

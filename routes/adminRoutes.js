@@ -12,6 +12,8 @@ router.post('/approve/:id', auth, role('admin'), adminController.approveUser);
 router.delete('/reject/:id', auth, role('admin'), adminController.rejectUser);
 // Get all uploaded letter copies (admin)
 router.get('/letters', auth, role('admin'), adminController.getAllLetters);
+// Force PDF download via API proxy (avoids browser/Cloudinary delivery quirks)
+router.get('/letters/download', auth, role('admin'), adminController.downloadLetter);
 router.post('/users/:id/unlock-attendance', auth, role('admin'), adminController.unlockAttendance);
 router.post('/monthly-reports/send', auth, role('admin'), adminController.triggerMonthlyReports);
 
