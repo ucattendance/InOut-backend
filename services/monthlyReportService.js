@@ -6,10 +6,13 @@ const LeaveRequest = require('../models/LeaveRequest');
 const Payslip = require('../models/Payslip');
 const MonthlyReportLog = require('../models/MonthlyReportLog');
 const transporter = require('../config/emailConfig');
+const {
+  getSenderFromAddress,
+  assertEmailConfigured,
+} = require('../config/emailConfig');
 const { buildMonthlyReportHtml } = require('../utils/monthlyReportEmails');
 const {
   TIMEZONE,
-  getSenderFromAddress,
   getEligibleEmployees,
 } = require('./attendanceReminderService');
 
@@ -315,9 +318,7 @@ const markFailed = async ({ userId, monthKey, errorMessage }) => {
 };
 
 const sendMail = async ({ to, subject, html }) => {
-  if (!process.env.NOTIFY_EMAIL || !process.env.NOTIFY_PASSWORD) {
-    throw new Error('NOTIFY_EMAIL / NOTIFY_PASSWORD not configured');
-  }
+  assertEmailConfigured();
   return transporter.sendMail({
     from: getSenderFromAddress(),
     to,

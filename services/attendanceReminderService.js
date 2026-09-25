@@ -3,6 +3,10 @@ const Attendance = require('../models/Attendance');
 const AttendanceReminderLog = require('../models/AttendanceReminderLog');
 const transporter = require('../config/emailConfig');
 const {
+  getSenderFromAddress,
+  assertEmailConfigured,
+} = require('../config/emailConfig');
+const {
   URLS,
   buildCheckInReminderHtml,
   buildCheckoutReminderHtml,
@@ -11,15 +15,6 @@ const {
 } = require('../utils/attendanceReminderEmails');
 
 const TIMEZONE = 'Asia/Kolkata';
-
-/** Build From using the authenticated SMTP mailbox (NOTIFY_EMAIL). */
-const getSenderFromAddress = () => {
-  const email = process.env.NOTIFY_EMAIL;
-  if (!email || !String(email).trim()) {
-    throw new Error('NOTIFY_EMAIL is not configured');
-  }
-  return `InOut Portal <${String(email).trim()}>`;
-};
 
 const REMINDER_TYPES = {
   CHECKIN_10AM: 'checkin-10am',
@@ -255,9 +250,7 @@ const markReminderFailed = async ({ userId, reminderType, dateKey, errorMessage 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const sendMail = async ({ to, subject, html }) => {
-  if (!process.env.NOTIFY_EMAIL || !process.env.NOTIFY_PASSWORD) {
-    throw new Error('NOTIFY_EMAIL / NOTIFY_PASSWORD not configured');
-  }
+  assertEmailConfigured();
 
   const payload = {
     from: getSenderFromAddress(),

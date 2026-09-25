@@ -6,6 +6,7 @@
     "test": "node scripts/testProfileLock.js && node scripts/testAttendanceReminders.js && node scripts/testMonthlyReport.js && node scripts/testBirthdayWishes.js && node scripts/testJoiningWishes.js && node scripts/testNewUserWishes.js && node scripts/testPayslipAuth.js",
     "test:payslips": "node scripts/testPayslipAuth.js",
     "test:reminders": "node scripts/testAttendanceReminders.js",
+    "smtp:verify": "node scripts/verifySmtp.js",
     "test:monthly-report": "node scripts/testMonthlyReport.js",
     "test:birthday": "node scripts/testBirthdayWishes.js",
     "test:joining": "node scripts/testJoiningWishes.js",

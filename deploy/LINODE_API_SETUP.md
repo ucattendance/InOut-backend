@@ -57,7 +57,35 @@ curl http://127.0.0.1:5010/ping
 
 ## 5) Email (reminders / leave / register)
 
-`.env`-la add pannunga:
+Gmail SMTP from Linode often hits **Connection timeout**. Prefer **SendGrid**.
+
+### Option A — SendGrid (recommended)
+
+1. Create a free account at https://signup.sendgrid.com/
+2. Settings → API Keys → Create API Key (Mail Send)
+3. Settings → Sender Authentication → verify `admin@urbancode.in` (or domain `urbancode.in`)
+4. On the server `.env`:
+
+```env
+SENDGRID_API_KEY=SG.your_key_here
+NOTIFY_EMAIL=admin@urbancode.in
+SENDER_EMAIL=admin@urbancode.in
+SENDER_NAME=UC Attendance
+ATTENDANCE_REMINDERS_ENABLED=true
+MONTHLY_REPORTS_ENABLED=true
+```
+
+5. Test:
+
+```bash
+cd ~/Inout-backend
+node scripts/verifySmtp.js
+node scripts/verifySmtp.js --send your@email.com
+```
+
+### Option B — Gmail (fallback)
+
+Code forces **IPv4** to `smtp.gmail.com:465`. Still may fail if the host blocks SMTP.
 
 ```env
 NOTIFY_EMAIL=admin@urbancode.in
@@ -75,13 +103,12 @@ pm2 logs inout-backend --lines 30
 
 Logs-la `[AttendanceReminder] Scheduler started` varanum.
 
-Test (no live send):
+Unit tests (no live send):
 
 ```bash
 cd ~/Inout-backend
 node scripts/testAttendanceReminders.js
 ```
-
 ## Notes
 
 - App listens on **5010** (see `.env` PORT).
